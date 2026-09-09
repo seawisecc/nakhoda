@@ -19,6 +19,10 @@ Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
 `npm run saran` (tulis satu saran lewat Admin SDK), `npm run deploy-rules`,
 `npm run palet` (gate kontras dan buta warna untuk seluruh palet).
 
+**Kalau Agus minta rekomendasi atau riset, baca `RISET.md` dulu.** Aturannya
+mengikat, termasuk bahwa "tidak ada yang layak hari ini" adalah jawaban yang
+benar dan sering.
+
 ## Bahasa dan gaya
 
 - **Seluruh kode, komentar, dan teks antarmuka berbahasa Indonesia.** Nama

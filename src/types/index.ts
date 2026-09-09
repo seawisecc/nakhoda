@@ -204,34 +204,4 @@ export interface Snapshot {
 }
 
 
-/** Ringkasan keadaan portofolio yang ditempelkan ke prompt riset.
- *
- *  Riset dijalankan sendiri dari terminal, jadi bentuk ini dipakai untuk
- *  menyusun perintah siap tempel di halaman Saran. Keadaan portofolio ikut
- *  dibekukan ke dalam perintah supaya yang dianalisis adalah keadaan saat
- *  perintahnya disalin, bukan saat kebetulan dijalankan. */
-export interface KonteksRiset {
-  mataUangDasar: MataUang;
-  totalNilai: number;
-  kas: number;
-  targetBulananMin: number;
-  targetBulananMax: number;
-  returnBulanBerjalan: number | null;
-  /** Rupiah yang direlakan hilang per satu trade. */
-  jatahRisiko: number;
-  posisi: {
-    ticker: string;
-    jenisAset: JenisAset;
-    qty: number;
-    avgHarga: number;
-    hargaTerakhir?: number;
-    mataUang: MataUang;
-    labaPersen?: number;
-    /** Stop dan target dari jurnal terbuka, kalau ada. */
-    stopLoss?: number;
-    targetHarga?: number;
-  }[];
-  /** Ticker yang pernah muncul di saran tapi belum dipegang. */
-  pengawasan: string[];
-}
 
