@@ -274,14 +274,31 @@ pernah bisa melukai lebih dalam dari jatah risikonya.
 
 ## Deploy ke Vercel
 
+Sudah jalan di **https://nakhoda.seawise.id**, proyek Vercel `seawise/nakhoda`,
+tersambung ke repo ini. Push ke `main` langsung men-deploy produksi.
+
+Kalau menyiapkan dari nol:
+
 1. Push repo ke GitHub, lalu import di Vercel
-2. Salin semua variabel dari `.env.local` ke **Settings → Environment Variables**
-   (kecuali `GOOGLE_APPLICATION_CREDENTIALS` dan `NAKHODA_UID`, keduanya hanya
-   dipakai script di laptop)
-3. Setelah deploy, tambahkan domain Vercel ke **Firebase Console →
-   Authentication → Settings → Authorized domains**, kalau tidak login akan
-   ditolak
-4. Pastikan `npm run deploy-rules` sudah dijalankan
+2. Salin semua variabel dari `.env.local` ke **Settings → Environment Variables**,
+   kecuali tiga ini: `GOOGLE_APPLICATION_CREDENTIALS` dan `NAKHODA_UID` hanya
+   dipakai script di laptop, dan `NEXT_PUBLIC_JALUR_REPO` isinya jalur folder di
+   laptop yang tidak ada artinya di server
+3. Pastikan `npm run deploy-rules` sudah dijalankan. Ini satu-satunya yang
+   benar-benar menjaga data; kunci `NEXT_PUBLIC_` memang ikut terkirim ke browser
+4. Subdomain: tambahkan domainnya di Vercel, lalu di penyedia DNS pasang CNAME
+   ke target yang diberikan Vercel. Untuk nakhoda.seawise.id di IDCloudHost:
+   `CNAME nakhoda → d3653bddcb3b226e.vercel-dns-017.com.`
+
+Dua hal yang sempat menggigit waktu menyiapkan ini:
+
+- **Author commit harus punya akses ke tim Vercel.** Push dari identitas git
+  yang bukan anggota tim tidak gagal build, tapi berstatus `BLOCKED` sebelum
+  build dimulai, dan CLI versi lama cuma menampilkannya sebagai `UNKNOWN`.
+- **Authorized domains di Firebase tidak perlu disentuh untuk login di sini.**
+  Daftar itu mengunci handler OAuth dan tautan aksi email, sementara app ini
+  masuk lewat `signInWithEmailAndPassword` yang tidak memeriksanya. Baru perlu
+  diisi kalau nanti menambah login Google atau reset sandi lewat email.
 
 Di HP, buka domainnya lalu "Add to Home Screen".
 
