@@ -1,0 +1,26 @@
+{
+  "name": "Nakhoda, Portofolio",
+  "short_name": "Nakhoda",
+  "description": "Pelacak portofolio pribadi untuk saham AS dan kripto.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090808",
+  "theme_color": "#090808",
+  "lang": "id",
+  "dir": "ltr",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/ikon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/ikon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/ikon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/ikon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Catat transaksi", "url": "/transaksi?baru=1" },
+    { "name": "Tulis jurnal", "url": "/jurnal?baru=1" },
+    { "name": "Kalkulator risiko", "url": "/jurnal?kalkulator=1" }
+  ]
+}

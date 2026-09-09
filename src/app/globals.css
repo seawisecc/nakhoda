@@ -1,0 +1,533 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Nakhoda, Design System, "papan instrumen"
+
+   Sistem lama bertumpu pada kartu bersudut bulat, bayangan, dan aksen emas.
+   Sistem ini bertumpu pada tiga hal lain, dan hanya tiga:
+
+   1. HAIRLINE, bukan bayangan. Struktur halaman dibawa oleh garis 1px dan
+      oleh beda permukaan yang tipis. Sudut nol di semua tempat kecuali chip
+      status. Bayangan cuma dipakai untuk yang benar-benar mengambang di atas
+      halaman (modal), tidak untuk kartu yang duduk di dalam alur.
+   2. LABEL MONOSPACE HURUF BESAR. Setiap label kecil dicetak mono, uppercase,
+      tracking lebar. Ini yang membuat layar terbaca sebagai instrumen dan
+      bukan sebagai kartu aplikasi; lihat kelas .label-mikro.
+   3. ANGKA MONOSPACE. Semua nominal memakai mono dan tabular-nums. Angka uang
+      di font proporsional selalu bergoyang saat harganya berubah, dan di
+      tampilan sepadat ini goyangan itu jadi sangat terasa.
+
+   Merah adalah satu-satunya warna aksen, dan dia SAMA dengan warna rugi.
+   Itu disengaja: dua merah yang berbeda tipis di satu layar finansial lebih
+   membingungkan daripada satu merah yang dipakai untuk dua peran yang tidak
+   pernah muncul di tempat yang sama. Aksen hanya menyentuh kerangka (logo,
+   nav aktif, garis kepala panel); ANGKA tidak pernah memakai aksen, dia hanya
+   memakai naik / turun / ink. Arah untung-rugi juga tidak pernah dibawa warna
+   saja, selalu ada tanda ▲/▼ atau kata.
+
+   Palet di bawah bukan hasil kira-kira. Semua nilainya lolos
+   `npx tsx scripts/validasi-palet.ts`: kontras teks 4,5:1 terhadap SETIAP
+   permukaan tempat teks itu dipakai, kontras batas kontrol dan warna seri
+   3:1, dan pemisahan antar seri untuk semua pasangan di penglihatan normal
+   maupun di simulasi protanopia dan deuteranopia. Jangan ubah satu nilai pun
+   tanpa menjalankan ulang skrip itu.
+
+   Tema dipilih lewat atribut [data-theme] di <html>.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Tema terang, "kertas". Ini tema utama sekarang ──
+     Dasarnya kertas hangat, bukan putih. Di layar sepadat ini, putih murni
+     bikin hairline hitam terbaca terlalu keras dan seluruh grid jadi berisik. */
+
+  --nk-canvas: #e7e4dc;
+  --nk-surface: #f6f4ef;
+  --nk-surface-2: #edeae3; /* baris berselang, chip, bidang di dalam panel */
+  --nk-surface-sunk: #dedbd2; /* isian, track meter, area tertekan */
+
+  /* Dua peran garis yang sengaja dipisah.
+     --nk-border dekoratif: pemisah baris, tepi panel. Dia TIDAK tunduk ke
+     3:1, dan itu bukan kelonggaran; WCAG 1.4.11 mengikat komponen yang harus
+     bisa dikenali, bukan garis pemisah. Memaksa hairline ke 3:1 di atas
+     kertas menghasilkan jala garis gelap di seluruh layar.
+     --nk-border-strong dipakai untuk tepi KONTROL (isian, select, tombol
+     berbingkai) dan itu yang lolos 3:1, karena tanpa tepinya kontrolnya
+     tidak bisa dikenali sebagai kontrol. */
+  --nk-border: #cdc9bc;
+  --nk-border-strong: #787365;
+  --nk-hairline: rgb(20 18 15 / 0.1);
+
+  --nk-ink: #14120f;
+  --nk-ink-soft: #4c4840;
+  --nk-ink-faint: #635e52;
+
+  /* Aksen. Dua nilai: --nk-aksen untuk TEKS dan ikon, --nk-aksen-isi untuk
+     BIDANG berisi yang memuat teks terang. Satu nilai untuk dua peran selalu
+     mengorbankan salah satunya. */
+  --nk-aksen: #a8231d;
+  --nk-aksen-isi: #b8261f;
+  --nk-aksen-lembut: #f3e2df;
+  --nk-aksen-di-isi: #fdf7f6;
+
+  --nk-naik: #0f6b45;
+  --nk-naik-lembut: #dceae1;
+  --nk-turun: #a8231d;
+  --nk-turun-lembut: #f3e2df;
+  --nk-netral: #635e52;
+
+  --nk-peringatan: #7d5310;
+  --nk-info: #1d5570;
+
+  /* Bayangan hanya untuk yang benar-benar mengambang. e1 sengaja nihil:
+     panel di dalam alur halaman tidak boleh punya bayangan sama sekali,
+     dan menyediakan nilai kecil-tapi-ada membuat itu pelan-pelan bocor
+     balik ke komponen. */
+  --nk-bayang-1: none;
+  --nk-bayang-2: 0 2px 10px rgb(20 18 15 / 0.08);
+  --nk-bayang-3: 0 12px 34px rgb(20 18 15 / 0.16);
+
+  --nk-grid: rgb(20 18 15 / 0.08);
+
+  /* Warna seri chart. Urutannya tetap: 1 saham, 2 kripto, 3 kas. Slot tidak
+     pernah didaur ulang dan tidak pernah ditukar saat salah satu seri hilang
+     dari filter, supaya warna selalu menunjuk entitas yang sama.
+     seri-1 dipekatkan dari #b87d0a ke #9e6b06: nilai lama hanya mencapai
+     2,92:1 di atas --nk-surface-2 setelah permukaannya berganti ke kertas,
+     di bawah ambang 3:1. */
+  --nk-seri-1: #9e6b06;
+  --nk-seri-2: #2a6fce;
+  --nk-seri-3: #0f8259;
+
+  /* Bentuk. Nol di mana-mana; hanya chip status yang dibulatkan sedikit,
+     supaya dia terbaca sebagai penanda keadaan dan bukan sebagai sel tabel. */
+  --nk-radius-sm: 0px;
+  --nk-radius: 0px;
+  --nk-radius-lg: 0px;
+  --nk-radius-xl: 0px;
+  --nk-radius-chip: 2px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  /* ── Tema gelap, "terminal malam" ──
+     Geometri, tipografi, dan peran warnanya identik dengan tema kertas; yang
+     berbalik hanya tangga permukaannya. Netralnya nyaris tanpa kroma: setelah
+     aksen emas dilepas, tidak ada lagi alasan menghangatkan dasarnya, dan
+     dasar netral membuat merah aksen terbaca sebagai sinyal, bukan sebagai
+     bagian dari latar. */
+  --nk-canvas: #0a0a09;
+  --nk-surface: #131312;
+  --nk-surface-2: #1e1e1c;
+  --nk-surface-sunk: #0a0a09;
+
+  --nk-border: #2d2d2a;
+  --nk-border-strong: #6e6c62;
+  --nk-hairline: rgb(255 255 255 / 0.08);
+
+  --nk-ink: #eceae4;
+  --nk-ink-soft: #b2afa6;
+  --nk-ink-faint: #8d8a81;
+
+  /* Di dasar gelap peran dua nilai aksen hampir bertukar: yang cerah justru
+     yang paling terbaca sebagai teks. */
+  --nk-aksen: #ff6250;
+  --nk-aksen-isi: #d63a29;
+  --nk-aksen-lembut: #2c1512;
+  --nk-aksen-di-isi: #fff6f4;
+
+  --nk-naik: #3fd68d;
+  --nk-naik-lembut: #12301f;
+  --nk-turun: #ff6250;
+  --nk-turun-lembut: #2c1512;
+  --nk-netral: #8d8a81;
+
+  --nk-peringatan: #e8b752;
+  --nk-info: #79bde0;
+
+  --nk-bayang-1: none;
+  --nk-bayang-2: 0 2px 12px rgb(0 0 0 / 0.5);
+  --nk-bayang-3: 0 14px 40px rgb(0 0 0 / 0.6);
+
+  --nk-grid: rgb(255 255 255 / 0.07);
+
+  --nk-seri-1: #c98500;
+  --nk-seri-2: #3987e5;
+  --nk-seri-3: #199e70;
+
+  color-scheme: dark;
+}
+
+/* Kalau pengguna belum pernah memilih, ikuti sistem. Blok ini sengaja
+   dijaga `:not([data-theme])` supaya pilihan eksplisit selalu menang. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --nk-canvas: #0a0a09;
+    --nk-surface: #131312;
+    --nk-surface-2: #1e1e1c;
+    --nk-surface-sunk: #0a0a09;
+    --nk-border: #2d2d2a;
+    --nk-border-strong: #6e6c62;
+    --nk-hairline: rgb(255 255 255 / 0.08);
+    --nk-ink: #eceae4;
+    --nk-ink-soft: #b2afa6;
+    --nk-ink-faint: #8d8a81;
+    --nk-aksen: #ff6250;
+    --nk-aksen-isi: #d63a29;
+    --nk-aksen-lembut: #2c1512;
+    --nk-aksen-di-isi: #fff6f4;
+    --nk-naik: #3fd68d;
+    --nk-naik-lembut: #12301f;
+    --nk-turun: #ff6250;
+    --nk-turun-lembut: #2c1512;
+    --nk-netral: #8d8a81;
+    --nk-peringatan: #e8b752;
+    --nk-info: #79bde0;
+    --nk-bayang-1: none;
+    --nk-bayang-2: 0 2px 12px rgb(0 0 0 / 0.5);
+    --nk-bayang-3: 0 14px 40px rgb(0 0 0 / 0.6);
+    --nk-grid: rgb(255 255 255 / 0.07);
+    --nk-seri-1: #c98500;
+    --nk-seri-2: #3987e5;
+    --nk-seri-3: #199e70;
+    color-scheme: dark;
+  }
+}
+
+/* Token di atas dijembatani ke utility Tailwind supaya komponen bisa nulis
+   `bg-surface text-ink border-hairline` alih-alih arbitrary value panjang. */
+@theme inline {
+  --color-canvas: var(--nk-canvas);
+  --color-surface: var(--nk-surface);
+  --color-surface-2: var(--nk-surface-2);
+  --color-surface-sunk: var(--nk-surface-sunk);
+  --color-bordr: var(--nk-border);
+  --color-bordr-strong: var(--nk-border-strong);
+  --color-hairline: var(--nk-hairline);
+
+  --color-ink: var(--nk-ink);
+  --color-ink-soft: var(--nk-ink-soft);
+  --color-ink-faint: var(--nk-ink-faint);
+
+  --color-aksen: var(--nk-aksen);
+  --color-aksen-isi: var(--nk-aksen-isi);
+  --color-aksen-lembut: var(--nk-aksen-lembut);
+  --color-aksen-di-isi: var(--nk-aksen-di-isi);
+
+  --color-naik: var(--nk-naik);
+  --color-naik-lembut: var(--nk-naik-lembut);
+  --color-turun: var(--nk-turun);
+  --color-turun-lembut: var(--nk-turun-lembut);
+  --color-netral: var(--nk-netral);
+  --color-peringatan: var(--nk-peringatan);
+  --color-info: var(--nk-info);
+
+  --color-seri-1: var(--nk-seri-1);
+  --color-seri-2: var(--nk-seri-2);
+  --color-seri-3: var(--nk-seri-3);
+  --color-grid: var(--nk-grid);
+
+  --radius-sm: var(--nk-radius-sm);
+  --radius-md: var(--nk-radius);
+  --radius-lg: var(--nk-radius-lg);
+  --radius-xl: var(--nk-radius-xl);
+  --radius-chip: var(--nk-radius-chip);
+
+  --shadow-e1: var(--nk-bayang-1);
+  --shadow-e2: var(--nk-bayang-2);
+  --shadow-e3: var(--nk-bayang-3);
+
+  --font-sans:
+    ui-sans-serif, -apple-system, "SF Pro Text", "Segoe UI", Inter, system-ui,
+    sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "JetBrains Mono", "Roboto Mono", Menlo, monospace;
+  /* --font-dot disetel oleh next/font/local di layout.tsx, bukan di sini.
+     Nilainya nama keluarga yang dihasilkan Next; menuliskannya sendiri di sini
+     akan menghasilkan nama yang salah begitu berkas fontnya berganti versi. */
+  --font-dot-stack: var(--font-dot), var(--font-mono);
+}
+
+/* ── Dasar ──────────────────────────────────────────────────────────────
+   Semuanya di bawah dibungkus @layer, dan itu bukan formalitas.
+
+   CSS yang ditulis tanpa layer selalu menang atas CSS di dalam layer, berapa
+   pun spesifisitasnya. Tailwind menaruh seluruh utility-nya di
+   @layer utilities, jadi satu aturan `* { border-color }` yang ditulis di luar
+   layer diam-diam mematikan SETIAP utility warna border di seluruh app:
+   border-aksen/30, border-turun/25, semuanya ikut. Kesalahan seperti ini tidak
+   pernah muncul sebagai galat, cuma sebagai border yang warnanya selalu sama
+   di mana-mana, dan itu butuh waktu lama untuk disadari.
+
+   Kelas komponen (.panel dan kawan-kawan) ditaruh di @layer components dengan
+   alasan yang sama tapi terbalik: supaya utility Tailwind di kelas yang sama
+   tetap bisa menimpanya, misalnya `className="kartu border-turun/40"`.
+   ────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--nk-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Warna di balik area aman iOS saat app dipasang ke layar utama. Tanpa
+       ini, bilah atas jadi putih di tema gelap. */
+    background-color: var(--nk-canvas);
+  }
+
+  body {
+    background-color: var(--nk-canvas);
+    color: var(--nk-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+
+  /* Transisi tema. Hanya warna, dan hanya saat pengguna benar-benar menekan
+     tombol tema, supaya halaman tidak memudar tiap kali dinavigasi. */
+  html[data-transisi-tema] * {
+    transition:
+      background-color 220ms ease,
+      border-color 220ms ease,
+      color 220ms ease,
+      fill 220ms ease;
+  }
+
+  ::selection {
+    background: var(--nk-aksen-isi);
+    color: var(--nk-aksen-di-isi);
+  }
+
+  /* Cincin fokus ikut bersudut nol seperti sisa sistemnya. Radius 4px yang
+     dulu dipakai kelihatan jelas salah begitu semua yang dikelilinginya
+     bersudut tajam. */
+  :focus-visible {
+    outline: 2px solid var(--nk-aksen);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  /* Scrollbar dibuat tipis dan seragam supaya panel yang bisa digulir tidak
+     menampilkan bilah sistem yang terang di tengah antarmuka gelap. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--nk-border-strong) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--nk-border-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-transisi-tema] *,
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ── Kelas komponen ─────────────────────────────────────────────────── */
+
+@layer components {
+  /* Angka uang. Mono, bukan cuma tabular-nums: di layar sepadat ini kolom
+     angka harus berbaris persis, dan mono yang membuat digit, pemisah ribuan,
+     dan tanda mata uang semuanya jatuh di kisi yang sama. */
+  .angka {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: -0.015em;
+  }
+
+  /* Angka sorot. Dot-matrix, dan sengaja HANYA untuk satu angka per layar:
+     total portofolio di dasbor, return bulan berjalan, angka tengah donat.
+
+     Alasan pembatasannya bukan selera. Font titik kehilangan keterbacaan jauh
+     lebih cepat daripada font biasa saat ukurannya turun: di bawah sekitar
+     28px titik-titiknya mulai saling menempel dan 8 jadi mirip 0, 5 mirip 6.
+     Di kolom tabel, di baris posisi, di ubin statistik, angkanya tetap mono
+     biasa. Ini juga alasan kelasnya tidak menumpuk di atas .angka melainkan
+     menggantikannya: dua aturan font di satu elemen selalu berakhir dengan
+     salah satunya menang tanpa alasan yang jelas.
+
+     letter-spacing positif, bukan negatif seperti .angka. Rapatan yang bagus
+     untuk mono justru membuat titik dari dua digit bersebelahan bersinggungan. */
+  .angka-sorot {
+    font-family: var(--font-dot-stack);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    letter-spacing: 0.015em;
+  }
+
+  /* Label mikro. Inilah tanda tangan sistem ini, dan dia dipakai di SETIAP
+     label kecil: kepala kolom tabel, nama ubin, kepala panel, penanda status.
+     Kalau ada label kecil yang tidak memakai kelas ini, itu kelupaan, bukan
+     variasi yang disengaja. */
+  .label-mikro {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--nk-ink-faint);
+  }
+
+  /* Panel. Kotak instrumen: hairline, sudut nol, tanpa bayangan. */
+  .kartu {
+    background-color: var(--nk-surface);
+    border: 1px solid var(--nk-border);
+    position: relative;
+  }
+
+  /* Kepala panel. Garis di bawahnya membentang penuh sampai tepi panel,
+     bukan hanya selebar teks; itu yang bikin panel terbaca sebagai alat ukur
+     dengan kepala, bukan sebagai kartu dengan judul. */
+  .kepala-panel {
+    border-bottom: 1px solid var(--nk-border);
+  }
+
+  /* Panel induk dasbor. Bedanya dari panel biasa cuma satu: pita aksen 2px di
+     tepi atas. Tidak perlu lebih; angka di dalamnya sudah jauh lebih besar
+     daripada apa pun di halaman, dan itu yang menjadikannya jangkar. */
+  .kartu-utama {
+    background-color: var(--nk-surface);
+    border: 1px solid var(--nk-border);
+    position: relative;
+
+    /* Panel ini dulu punya dasar gelap sendiri di kedua tema, jadi isinya
+       memakai skala warna terpisah. Sekarang dasarnya sama dengan panel lain,
+       jadi variabel di bawah tinggal menunjuk token global. Nama variabelnya
+       dipertahankan supaya JSX yang memakainya tidak perlu ikut berubah, dan
+       supaya kalau suatu saat panel ini kembali punya dasar sendiri, cukup
+       satu tempat ini yang disetel ulang. */
+    --utama-teks: var(--nk-ink);
+    --utama-teks-soft: var(--nk-ink-soft);
+    --utama-teks-faint: var(--nk-ink-faint);
+    --utama-garis: var(--nk-border);
+    --utama-naik: var(--nk-naik);
+    --utama-turun: var(--nk-turun);
+    --utama-aksen: var(--nk-aksen);
+    --utama-peringatan: var(--nk-peringatan);
+  }
+
+  .kartu-utama::before {
+    content: "";
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 2px;
+    background: var(--nk-aksen-isi);
+    pointer-events: none;
+  }
+
+  /* Jala hairline. Membungkus beberapa sel dengan latar --nk-border dan jarak
+     1px membuat garis pemisahnya adalah latar itu sendiri, tembus di setiap
+     persimpangan. Menggambar border per sel selalu menghasilkan garis dobel
+     di tempat dua sel bertemu, dan garis dobel itu yang bikin grid terlihat
+     kotor pada kepadatan setinggi ini. */
+  .jala {
+    background-color: var(--nk-border);
+    border: 1px solid var(--nk-border);
+    display: grid;
+    gap: 1px;
+  }
+  .jala > * {
+    background-color: var(--nk-surface);
+  }
+
+  /* Chip status. Satu-satunya bentuk yang dibulatkan, dan hanya 2px. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid;
+    border-radius: var(--nk-radius-chip);
+    padding: 0.125rem 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  /* Kerangka saat memuat. Warnanya diambil dari token, jadi ikut tema. */
+  .rangka {
+    position: relative;
+    overflow: hidden;
+    background: var(--nk-surface-sunk);
+    border: 1px solid var(--nk-border);
+  }
+  .rangka::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--nk-hairline),
+      transparent
+    );
+    animation: nk-kilat 1.6s infinite;
+  }
+
+  /* Penanda data langsung. */
+  .denyut {
+    animation: nk-denyut 2.4s ease-in-out infinite;
+  }
+
+  /* Angka besar yang muncul sambil naik sedikit. Dipakai sekali di dasbor;
+     lebih dari itu jadi berisik. */
+  .masuk {
+    animation: nk-naik-masuk 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+/* Keyframes sengaja di luar layer: aturan @keyframes tidak ikut kaskade
+   layer, dan menaruhnya di dalam layer cuma menyamarkan itu. */
+
+@keyframes nk-denyut {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+
+@keyframes nk-kilat {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nk-naik-masuk {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

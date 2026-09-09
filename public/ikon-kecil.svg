@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nakhoda">
+  <!-- Varian lambang untuk ukuran tab dan favicon.
+       Bukan duplikat malas dari ikon.svg: pada 16px, stroke 30 di viewBox 512
+       jatuh jadi 0,94px dan hilang setengahnya ke antialiasing, sudut membulat
+       114 jadi bubur, dan garis tepi dalam menempel ke tepi kanvas. Di sini
+       goresnya digandakan, tepi dalam dibuang, dan jangkarnya sedikit
+       dirapatkan supaya batang, palang, dan lengkungnya tidak saling menempel
+       saat dikecilkan. -->
+  <rect width="512" height="512" rx="72" fill="#16120d"/>
+  <g fill="none" stroke="#e8b169" stroke-linecap="round">
+    <circle cx="256" cy="112" r="48" stroke-width="44"/>
+    <path d="M256 162v258" stroke-width="56"/>
+    <path d="M150 216h212" stroke-width="52"/>
+    <path d="M104 288c0 88 68 152 152 152s152-64 152-152" stroke-width="56"/>
+  </g>
+</svg>

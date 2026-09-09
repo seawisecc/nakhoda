@@ -1,0 +1,97 @@
+rules_version = '2';
+
+/*
+ * Aturan keamanan Nakhoda.
+ *
+ * App ini bisa dibuka dari internet mana pun, jadi tanpa aturan ini siapa pun
+ * yang tahu konfigurasi Firebase (yang memang ikut terkirim ke browser, dan
+ * memang bukan rahasia) bisa membaca seluruh data finansial pribadi.
+ *
+ * Prinsipnya tolak-dulu: tidak ada aturan menyeluruh di akar. Setiap koleksi
+ * disebut satu per satu, dan koleksi yang tidak disebut otomatis tertutup.
+ *
+ * Admin SDK yang dipakai scripts/tambah-saran.ts melewati seluruh berkas ini.
+ * Itu bukan lubang di aturan, itu memang sifat Admin SDK; pengamanannya ada di
+ * menjaga service account key tetap di laptop dan di luar git.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function sudahMasuk() {
+      return request.auth != null;
+    }
+
+    // Dokumen milik pengguna yang sedang masuk, baik yang sudah ada di
+    // basis data maupun yang sedang ditulis.
+    function miliknya() {
+      return sudahMasuk() && resource.data.uid == request.auth.uid;
+    }
+
+    function akanJadiMiliknya() {
+      return sudahMasuk() && request.resource.data.uid == request.auth.uid;
+    }
+
+    // uid tidak boleh dipindahtangankan lewat pembaruan: dokumen yang sudah
+    // ada harus tetap milik pemiliknya sebelum dan sesudah ditulis.
+    function pemilikTetap() {
+      return miliknya() && akanJadiMiliknya();
+    }
+
+    match /transactions/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /capitalFlows/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /journalEntries/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /suggestions/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    // Permintaan riset. Ditulis app, dibaca dan diperbarui watcher di laptop
+    // lewat Admin SDK (yang melewati aturan ini sepenuhnya).
+    match /researchRequests/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /snapshots/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /priceCache/{ticker} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    match /fxCache/{pasangan} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
+    // Pengaturan beralamat uid, jadi kepemilikannya terbaca dari nama dokumen
+    // dan tetap benar meskipun dokumennya belum pernah ada.
+    match /settings/{uid} {
+      allow read, write: if sudahMasuk() && request.auth.uid == uid;
+    }
+  }
+}

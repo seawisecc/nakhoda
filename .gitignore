@@ -1,0 +1,19 @@
+node_modules
+.next
+out
+build
+.DS_Store
+
+# Rahasia. Service account key Firebase Admin TIDAK BOLEH masuk git.
+.env
+.env.local
+.env*.local
+*serviceAccount*.json
+*service-account*.json
+secrets/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.vercel
+*.tsbuildinfo

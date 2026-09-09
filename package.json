@@ -1,0 +1,49 @@
+{
+  "name": "nakhoda",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Nakhoda, pelacak portofolio pribadi untuk saham AS dan kripto",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "tsx src/lib/__tests__/jalankan.mts",
+    "saran": "tsx scripts/tambah-saran.ts",
+    "deploy-rules": "tsx scripts/deploy-rules.ts",
+    "verify": "npm run lint && npm test && npm run build",
+    "pantau": "tsx scripts/pantau-riset.ts",
+    "kunci": "tsx scripts/set-kunci.ts",
+    "palet": "tsx scripts/validasi-palet.ts"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "firebase": "^12.18.0",
+    "lucide-react": "^1.34.0",
+    "next": "16.3.3",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^17.4.2",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.3",
+    "firebase-admin": "^14.3.0",
+    "firebase-tools": "^15.29.0",
+    "sharp": "^0.35.4",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.12",
+    "typescript": "^5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "unrs-resolver@1.12.2": true,
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
+  }
+}
