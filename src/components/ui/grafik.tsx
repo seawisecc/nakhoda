@@ -405,12 +405,15 @@ export function MeterKekayaan({
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-3">
+        {/* Dulu berbunyi "71% menuju Rp 10 jt", dan itu terbaca sebagai 71%
+            DARI Rp 10 juta alias Rp 7,1 juta, padahal maksudnya 71% jarak dari
+            Rp 5 juta ke Rp 10 juta. Angka batasnya sudah ada sebagai sumbu di
+            bawah batang, jadi kalimat ini cukup menyebut apa yang diukur, bukan
+            mengulang angkanya dengan kata sambung yang ambigu. */}
         <span className="angka text-[13px] font-semibold text-[var(--utama-teks)]">
           {t.selesai
             ? "Target tercapai"
-            : `${formatPersen(t.porsi * 100, t.porsi < 0.1 ? 1 : 0, false)} menuju ${formatUang(
-                t.atas, mataUang, { ringkas: true },
-              )}`}
+            : `${formatPersen(t.porsi * 100, t.porsi < 0.1 ? 1 : 0, false)} ke tonggak berikutnya`}
         </span>
         <span className="angka text-[12px] text-[var(--utama-teks-faint)]">
           {formatPersen(t.porsiTarget * 100, t.porsiTarget < 0.1 ? 2 : 1, false)} dari{" "}
