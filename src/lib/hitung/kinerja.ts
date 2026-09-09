@@ -131,29 +131,143 @@ export function nilaiBukuPada(
   dasar: MataUang,
   kurs: Kurs,
 ): number {
-  const sampai = transaksi.filter((t) => t.tanggal <= tanggal);
-  let realisasi = 0;
+  const realisasi = realisasiTiapJual(transaksi, dasar, kurs)
+    .filter((r) => r.tanggal <= tanggal)
+    .reduce((s, r) => s + r.jumlah, 0);
+  return arusBersihSampai(arus, tanggal, dasar, kurs).bersih + realisasi;
+}
+
+export interface Realisasi {
+  tanggal: string;
+  ticker: string;
+  /** Laba bersih penjualan itu, dalam mata uang dasar. Boleh negatif. */
+  jumlah: number;
+}
+
+/** Laba terealisasi setiap kali ada penjualan, urut kronologis.
+ *
+ *  Satu tempat untuk pemutaran ulang biaya rata-rata di modul ini, dipakai
+ *  nilai buku maupun realisasi per periode. Sebelumnya rumus yang sama ditulis
+ *  dua kali, dan dua salinan biaya rata-rata adalah cara paling rapi untuk
+ *  menghasilkan dua angka laba yang berbeda dari data yang sama. */
+export function realisasiTiapJual(
+  transaksi: readonly Transaksi[],
+  dasar: MataUang,
+  kurs: Kurs,
+): Realisasi[] {
+  const hasil: Realisasi[] = [];
   const basis = new Map<string, { qty: number; biaya: number }>();
-  for (const t of [...sampai].sort(
-    (a, b) => a.tanggal.localeCompare(b.tanggal) || (a.dibuatPada || 0) - (b.dibuatPada || 0),
+
+  for (const t of [...transaksi].sort(
+    (a, b) =>
+      a.tanggal.localeCompare(b.tanggal) ||
+      (a.dibuatPada || 0) - (b.dibuatPada || 0) ||
+      a.id.localeCompare(b.id),
   )) {
-    const k = t.ticker.toUpperCase();
+    const k = t.ticker.trim().toUpperCase();
     const b = basis.get(k) ?? { qty: 0, biaya: 0 };
-    const nilai = konversi(Math.abs(t.qty) * t.harga, t.mataUang, dasar, kurs);
+    const qty = Math.abs(t.qty);
+    const nilai = konversi(qty * t.harga, t.mataUang, dasar, kurs);
     const fee = konversi(t.fee || 0, t.mataUang, dasar, kurs);
+
     if (t.sisi === "beli") {
-      b.qty += Math.abs(t.qty);
+      b.qty += qty;
       b.biaya += nilai + fee;
     } else {
-      const terjual = Math.min(Math.abs(t.qty), b.qty);
+      const terjual = Math.min(qty, b.qty);
       const avg = b.qty > 0 ? b.biaya / b.qty : 0;
-      realisasi += nilai - fee - terjual * avg;
+      hasil.push({ tanggal: t.tanggal, ticker: k, jumlah: nilai - fee - terjual * avg });
       b.biaya -= terjual * avg;
       b.qty -= terjual;
     }
     basis.set(k, b);
   }
-  return arusBersihSampai(arus, tanggal, dasar, kurs).bersih + realisasi;
+
+  return hasil;
+}
+
+export interface RealisasiPeriode {
+  mulai: string;
+  akhir: string;
+  /** Uang hasil penjualan dikurangi biaya perolehannya, dalam mata uang dasar. */
+  realisasi: number;
+  /** Penyebut target: setoran dikurangi penarikan sampai akhir periode. */
+  modal: number;
+  /** Realisasi sebagai persen dari modal. null kalau belum ada modal masuk. */
+  persen: number | null;
+  /** Target bulanan yang diterjemahkan ke rupiah, supaya angkanya bisa
+   *  dibandingkan langsung dengan realisasinya, bukan cuma dengan persennya. */
+  targetMin: number;
+  targetMax: number;
+  jumlahJual: number;
+  status: "kosong" | "rugi" | "belum" | "tercapai" | "lampaui";
+}
+
+/** Berapa banyak uang yang benar-benar sudah jadi laba di satu periode.
+ *
+ *  Ini pelengkap Modified Dietz, bukan penggantinya, dan keduanya memang akan
+ *  berbeda. Dietz mengukur kinerja seluruh modal termasuk posisi yang masih
+ *  mengambang; angka di sini hanya menghitung yang sudah dikunci lewat
+ *  penjualan. Portofolio bisa naik 8% menurut Dietz sementara realisasinya nol
+ *  karena belum ada yang dijual, dan itu bukan kontradiksi.
+ *
+ *  Penyebutnya modal bersih, yaitu uang yang benar-benar disetor sendiri.
+ *  Bukan nilai portofolio, supaya target tidak ikut bergerak setiap kali harga
+ *  pasar bergerak. */
+export function realisasiPeriode(opsi: {
+  transaksi: readonly Transaksi[];
+  arus: readonly ArusModal[];
+  mulai: string;
+  akhir: string;
+  targetMinPersen: number;
+  targetMaksPersen: number;
+  dasar: MataUang;
+  kurs: Kurs;
+}): RealisasiPeriode {
+  const { transaksi, arus, mulai, akhir, dasar, kurs } = opsi;
+
+  const dalam = realisasiTiapJual(transaksi, dasar, kurs).filter(
+    (r) => r.tanggal >= mulai && r.tanggal <= akhir,
+  );
+  const realisasi = dalam.reduce((s, r) => s + r.jumlah, 0);
+  const modal = arusBersihSampai(arus, akhir, dasar, kurs).bersih;
+
+  const persen = modal > 0 ? (realisasi / modal) * 100 : null;
+  const min = Math.max(0, opsi.targetMinPersen);
+  const maks = Math.max(min, opsi.targetMaksPersen);
+
+  const status: RealisasiPeriode["status"] =
+    persen === null ? "kosong"
+      : realisasi < 0 ? "rugi"
+        : persen >= maks ? "lampaui"
+          : persen >= min ? "tercapai"
+            : "belum";
+
+  return {
+    mulai,
+    akhir,
+    realisasi,
+    modal,
+    persen,
+    targetMin: (modal * min) / 100,
+    targetMax: (modal * maks) / 100,
+    jumlahJual: dalam.length,
+    status,
+  };
+}
+
+/** Realisasi bulan berjalan, memakai batas kalender yang sama dengan Dietz. */
+export function realisasiBulanBerjalan(opsi: {
+  transaksi: readonly Transaksi[];
+  arus: readonly ArusModal[];
+  targetMinPersen: number;
+  targetMaksPersen: number;
+  dasar: MataUang;
+  kurs: Kurs;
+  tanggal?: string;
+}): RealisasiPeriode {
+  const kini = opsi.tanggal ?? hariIni();
+  return realisasiPeriode({ ...opsi, mulai: awalBulan(kini), akhir: kini });
 }
 
 export interface HasilDietz {

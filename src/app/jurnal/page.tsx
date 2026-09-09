@@ -1,14 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Calculator, NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
+import { Calculator, CheckCircle2, NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
 import type { JurnalEntri } from "@/types";
+import type { UsulanTutup } from "@/lib/hitung/trade";
 import { usePortofolio } from "@/lib/data/portofolio";
 import { bandingkanSumber, rMultiple, rrRencana } from "@/lib/hitung/kinerja";
-import { formatAngka, formatPersen, formatUang } from "@/lib/format";
+import { formatAngka, formatPersen, formatQty, formatUang } from "@/lib/format";
 import { formatTanggal } from "@/lib/tanggal";
 import { bersihkanParam, useParamKueri } from "@/lib/param";
-import { Kartu, JudulKartu, Kosong, Lencana, Pilihan, Tombol } from "@/components/ui/dasar";
+import {
+  Kartu, JudulKartu, Kosong, Lencana, Pilihan, Tombol, warnaArah,
+} from "@/components/ui/dasar";
 import { JalaUbin, Ubin, Baris } from "@/components/ui/statistik";
 import { KakiPanel, Panel } from "@/components/ui/panel";
 import { FormJurnal } from "@/components/formulir/form-jurnal";
@@ -18,10 +21,15 @@ import { cn } from "@/lib/cn";
 type Saring = "semua" | "terbuka" | "tertutup" | "untung" | "rugi";
 
 export default function HalamanJurnal() {
-  const { jurnal, statistik, ringkasan, pengaturan, kurs, hapus } = usePortofolio();
+  const {
+    jurnal, statistik, trade, kinerjaTrade, usulanTutup, ringkasan, pengaturan,
+    kurs, hapus,
+  } = usePortofolio();
   const [formTerbuka, setFormTerbuka] = useState(false);
   const [kalkulatorTerbuka, setKalkulatorTerbuka] = useState(false);
   const [sunting, setSunting] = useState<JurnalEntri | null>(null);
+  const [usulanAktif, setUsulanAktif] = useState<UsulanTutup | null>(null);
+  const dasar = pengaturan.mataUangDasar;
   const [akanHapus, setAkanHapus] = useState<JurnalEntri | null>(null);
   const [saring, setSaring] = useState<Saring>("semua");
   const [cariTicker, setCariTicker] = useState("semua");
@@ -37,7 +45,15 @@ export default function HalamanJurnal() {
   function tutupFormulir() {
     setFormTerbuka(false);
     setSunting(null);
+    setUsulanAktif(null);
     bersihkanParam("baru");
+  }
+
+  /** Membuka form penutupan untuk satu entri, terisi dari transaksi jualnya. */
+  function bukaPenutupan(u: UsulanTutup) {
+    setSunting(u.entri);
+    setUsulanAktif(u);
+    setFormTerbuka(true);
   }
   function tutupKalkulator() {
     setKalkulatorTerbuka(false);
@@ -45,6 +61,14 @@ export default function HalamanJurnal() {
   }
 
   const perbandingan = useMemo(() => bandingkanSumber(jurnal), [jurnal]);
+  const usulanPerEntri = useMemo(
+    () => new Map(usulanTutup.map((u) => [u.entri.id, u])),
+    [usulanTutup],
+  );
+  const tradeSelesai = useMemo(
+    () => trade.filter((t) => t.selesai).slice(0, 12),
+    [trade],
+  );
   const semuaTicker = useMemo(
     () => [...new Set(jurnal.map((e) => e.ticker))].sort(),
     [jurnal],
@@ -66,11 +90,54 @@ export default function HalamanJurnal() {
 
   return (
     <div className="space-y-4">
+      {/* Ubin atas membaca transaksi, bukan jurnal. Win rate yang menunggu
+          entri jurnal ditulis akan kosong justru di bulan-bulan paling sibuk,
+          dan angka kosong tidak mengajari apa-apa. Ekspektansi R tetap dari
+          jurnal karena stop loss yang direncanakan memang cuma ada di sana. */}
       <JalaUbin>
         <Ubin
           label="Win rate"
-          nilai={statistik.winRate === null ? "—" : formatPersen(statistik.winRate, 1, false)}
-          sub={`${statistik.menang} dari ${statistik.totalTertutup} ditutup`}
+          nilai={kinerjaTrade.winRate === null ? "—" : formatPersen(kinerjaTrade.winRate, 1, false)}
+          sub={
+            kinerjaTrade.total
+              ? `${kinerjaTrade.menang} menang dari ${kinerjaTrade.total} trade`
+              : "belum ada posisi ditutup"
+          }
+        />
+        <Ubin
+          label="Hasil bersih"
+          nilai={
+            <span className={warnaArah(kinerjaTrade.totalHasil)}>
+              {formatUang(kinerjaTrade.totalHasil, dasar, { ringkas: true })}
+            </span>
+          }
+          sub={
+            kinerjaTrade.faktorUntung === null
+              ? "dari trade yang sudah selesai"
+              : `faktor untung ${formatAngka(kinerjaTrade.faktorUntung, 2)}`
+          }
+        />
+        <Ubin
+          label="Lama hold"
+          nilai={
+            kinerjaTrade.rataHariHold === null
+              ? "—"
+              : `${formatAngka(kinerjaTrade.rataHariHold, 0)} hari`
+          }
+          sub={
+            kinerjaTrade.rataHariMenang === null && kinerjaTrade.rataHariKalah === null
+              ? "rata-rata sampai posisi ditutup"
+              : [
+                  kinerjaTrade.rataHariMenang !== null
+                    ? `menang ${formatAngka(kinerjaTrade.rataHariMenang, 0)} hari`
+                    : null,
+                  kinerjaTrade.rataHariKalah !== null
+                    ? `kalah ${formatAngka(kinerjaTrade.rataHariKalah, 0)} hari`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+          }
         />
         <Ubin
           label="Ekspektansi"
@@ -82,14 +149,121 @@ export default function HalamanJurnal() {
               </span>
             )
           }
-          sub="rata-rata hasil per trade"
+          sub={
+            statistik.totalTertutup
+              ? `dari ${statistik.totalTertutup} entri berjurnal`
+              : "butuh entri jurnal yang ditutup"
+          }
         />
-        <Ubin
-          label="Rata-rata menang"
-          nilai={statistik.rataMenangR === null ? "—" : `+${formatAngka(statistik.rataMenangR, 2)}R`}
-        />
-        <Ubin label="Masih terbuka" nilai={statistik.terbuka} sub="posisi berjalan" />
       </JalaUbin>
+
+      {usulanTutup.length ? (
+        <Kartu>
+          <JudulKartu
+            judul={
+              usulanTutup.length === 1
+                ? "Satu entri jurnal sudah bisa ditutup"
+                : `${usulanTutup.length} entri jurnal sudah bisa ditutup`
+            }
+            keterangan="Posisinya sudah habis terjual di riwayat transaksi. Harga dan tanggal keluarnya tinggal dipindahkan, tapi pelajarannya cuma kamu yang tahu."
+          />
+          <ul className="-mx-4 -mb-4">
+            {usulanTutup.map((u) => (
+              <li
+                key={u.entri.id}
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-bordr px-4 py-3 last:border-0"
+              >
+                <span className="font-mono text-[13px] font-medium text-ink">{u.entri.ticker}</span>
+                <span className="text-[12px] text-ink-faint">
+                  ditutup {formatTanggal(u.tanggalKeluar)} setelah {u.trade.hariHold} hari
+                </span>
+                <span
+                  className={cn(
+                    "angka text-[12px] font-medium",
+                    warnaArah(u.trade.hasil ?? 0),
+                  )}
+                >
+                  {formatUang(u.trade.hasil ?? 0, u.trade.mataUang)}
+                </span>
+                <Tombol className="ml-auto" onClick={() => bukaPenutupan(u)}>
+                  <CheckCircle2 size={15} />
+                  Tutup entri
+                </Tombol>
+              </li>
+            ))}
+          </ul>
+        </Kartu>
+      ) : null}
+
+      {tradeSelesai.length ? (
+        <Kartu>
+          <JudulKartu
+            judul="Riwayat trade"
+            keterangan="Diturunkan dari transaksi, bukan dari jurnal. Satu baris untuk satu siklus posisi, dari beli pertama sampai habis terjual."
+          />
+          <div className="-mx-4 -mb-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse text-[12px]">
+              <thead>
+                <tr className="border-b border-bordr">
+                  {["Ticker", "Masuk", "Keluar", "Hold", "Modal", "Hasil"].map((h, i) => (
+                    <th
+                      key={h}
+                      className={cn(
+                        "label-mikro px-4 py-2",
+                        i === 0 ? "text-left" : "text-right",
+                      )}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tradeSelesai.map((t) => (
+                  <tr key={t.id} className="border-b border-bordr last:border-0">
+                    <td className="px-4 py-2.5">
+                      <span className="font-mono text-[13px] font-medium text-ink">{t.ticker}</span>
+                      <span className="ml-2 text-[11px] text-ink-faint">{formatQty(t.qty)}</span>
+                    </td>
+                    <td className="angka px-4 py-2.5 text-right text-ink-soft">
+                      {formatTanggal(t.tanggalMasuk)}
+                    </td>
+                    <td className="angka px-4 py-2.5 text-right text-ink-soft">
+                      {t.tanggalKeluar ? formatTanggal(t.tanggalKeluar) : "—"}
+                    </td>
+                    <td className="angka px-4 py-2.5 text-right text-ink-soft">
+                      {t.hariHold} hari
+                    </td>
+                    <td className="angka px-4 py-2.5 text-right text-ink-soft">
+                      {formatUang(t.modal, t.mataUang, { ringkas: true })}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {t.hasil === null ? (
+                        <Lencana nada="peringatan">beli tidak tercatat</Lencana>
+                      ) : (
+                        <span className={cn("angka font-medium", warnaArah(t.hasil))}>
+                          {formatUang(t.hasil, t.mataUang)}
+                          {t.hasilPersen !== null ? (
+                            <span className="ml-1.5 text-ink-faint">
+                              ({formatPersen(t.hasilPersen, 1)})
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {kinerjaTrade.tidakLengkap ? (
+            <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">
+              {kinerjaTrade.tidakLengkap} trade dikeluarkan dari win rate karena pembeliannya tidak
+              pernah tercatat, jadi labanya tidak bisa dihitung, cuma hasil jualnya yang diketahui.
+            </p>
+          ) : null}
+        </Kartu>
+      ) : null}
 
       {statistik.totalTertutup > 0 && perbandingan.dariSaran.totalTertutup > 0 ? (
         <Kartu>
@@ -182,6 +356,7 @@ export default function HalamanJurnal() {
               {terlihat.map((e) => {
                 const rr = rrRencana(e);
                 const r = rMultiple(e);
+                const usulan = usulanPerEntri.get(e.id);
                 return (
                   <li key={e.id} className="border border-bordr bg-surface-2 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -199,10 +374,23 @@ export default function HalamanJurnal() {
                           {e.status === "tertutup" ? (e.hasil ?? "ditutup") : e.status}
                         </Lencana>
                         {e.idSaran ? <Lencana nada="info">dari saran AI</Lencana> : null}
+                        {usulan ? (
+                          <Lencana nada="peringatan">posisi sudah ditutup</Lencana>
+                        ) : null}
                         <span className="text-[12px] text-ink-faint">{formatTanggal(e.tanggal)}</span>
                       </div>
 
                       <div className="flex items-center gap-1">
+                        {usulan ? (
+                          <button
+                            onClick={() => bukaPenutupan(usulan)}
+                            className="grid size-8 place-items-center text-ink-faint transition hover:bg-surface hover:text-naik"
+                            aria-label={`Tutup entri ${e.ticker} dari transaksi jualnya`}
+                            title="Tutup dari transaksi"
+                          >
+                            <CheckCircle2 size={14} />
+                          </button>
+                        ) : null}
                         <button
                           onClick={() => {
                             setSunting(e);
@@ -311,6 +499,7 @@ export default function HalamanJurnal() {
         terbuka={formulirTerbuka}
         tutup={tutupFormulir}
         sunting={sunting}
+        usulan={usulanAktif}
         modal={ringkasan.totalNilai}
       />
 

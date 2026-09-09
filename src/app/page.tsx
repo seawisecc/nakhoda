@@ -14,10 +14,26 @@ import { Ubin, Baris, JalaUbin } from "@/components/ui/statistik";
 import { Area, Donat, MeterKekayaan, MeterTarget } from "@/components/ui/grafik";
 import { cn } from "@/lib/cn";
 
+/* Kalimat penutup panel realisasi, satu per keadaan.
+ *
+ * "Belum" sengaja tidak berbunyi seperti teguran. Bulan tanpa penjualan bukan
+ * bulan yang gagal: posisi yang ditahan sesuai rencana justru tidak boleh
+ * dipaksa keluar cuma supaya angkanya bergerak, dan panel ini akan jadi
+ * dorongan untuk melakukan persis itu kalau nadanya salah. */
+const PESAN_REALISASI: Record<string, string> = {
+  kosong: "Belum ada modal tercatat, jadi persennya belum bisa dihitung.",
+  rugi: "Bulan ini penjualannya menutup rugi. Yang perlu ditengok jurnalnya, bukan angkanya.",
+  belum:
+    "Belum sampai target bawah. Posisi yang masih berjalan tidak dihitung di sini sampai benar-benar dijual.",
+  tercapai: "Sudah masuk rentang target bulan ini.",
+  lampaui: "Sudah lewat target atas bulan ini.",
+};
+
 export default function Dasbor() {
   const {
-    ringkasan, dietz, statistik, posisiAktif, saran, snapshot, pengaturan,
-    transaksi, arusModal, hargaTertua, pesanSegar, bersihkanPesanSegar, siap, kurs,
+    ringkasan, dietz, kinerjaTrade, realisasiBulan, posisiAktif, saran, snapshot,
+    pengaturan, transaksi, arusModal, hargaTertua, pesanSegar, bersihkanPesanSegar,
+    siap, kurs,
   } = usePortofolio();
 
   const dasar = pengaturan.mataUangDasar;
@@ -204,6 +220,74 @@ export default function Dasbor() {
         </Kartu>
       </section>
 
+      {/* ── Realisasi bulan berjalan ───────────────────────────────────
+          Panel sendiri, tidak digabung ke panel Return, karena keduanya
+          menjawab pertanyaan yang berbeda dan akan sering berbeda angkanya.
+          Return mengukur seluruh modal termasuk yang masih mengambang;
+          yang di sini cuma uang yang sudah benar-benar dikunci. */}
+      <Kartu>
+        <JudulKartu
+          judul={`Sudah jadi uang, ${formatBulan(kunciBulan(hariIni()))}`}
+          keterangan="Hasil penjualan dikurangi biaya perolehannya. Posisi yang masih terbuka tidak dihitung di sini, berapa pun untungnya di layar."
+        />
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div>
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span
+                className={cn(
+                  "angka text-[30px] leading-none font-semibold",
+                  warnaArah(realisasiBulan.realisasi),
+                )}
+              >
+                <span aria-hidden>{tandaArah(realisasiBulan.realisasi)}</span>{" "}
+                {formatUang(Math.abs(realisasiBulan.realisasi), dasar)}
+              </span>
+              {realisasiBulan.persen !== null ? (
+                <span className="angka text-[14px] text-ink-soft">
+                  {formatPersen(realisasiBulan.persen)} dari modal
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-5">
+              <MeterTarget
+                nilai={realisasiBulan.persen}
+                min={pengaturan.targetBulananMin}
+                maks={pengaturan.targetBulananMax}
+              />
+            </div>
+
+            <p className="mt-3 text-[12px] leading-relaxed text-ink-faint">
+              {PESAN_REALISASI[realisasiBulan.status]}
+            </p>
+          </div>
+
+          <div className="border-t border-bordr pt-1 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-5">
+            <Baris
+              label="Modal bersih"
+              nilai={formatUang(realisasiBulan.modal, dasar, { ringkas: true })}
+              petunjuk="Setoran dikurangi penarikan. Ini penyebut targetnya, bukan nilai portofolio, supaya targetnya tidak ikut bergerak setiap kali harga pasar bergerak."
+            />
+            <Baris
+              label={`Target ${formatPersen(pengaturan.targetBulananMin, 0, false)} sampai ${formatPersen(pengaturan.targetBulananMax, 0, false)}`}
+              nilai={`${formatUang(realisasiBulan.targetMin, dasar, { ringkas: true })} sampai ${formatUang(realisasiBulan.targetMax, dasar, { ringkas: true })}`}
+            />
+            <Baris
+              label="Kurang berapa lagi"
+              nilai={
+                realisasiBulan.realisasi >= realisasiBulan.targetMin
+                  ? "sudah lewat"
+                  : formatUang(realisasiBulan.targetMin - realisasiBulan.realisasi, dasar, {
+                      ringkas: true,
+                    })
+              }
+            />
+            <Baris label="Penjualan bulan ini" nilai={realisasiBulan.jumlahJual} />
+          </div>
+        </div>
+      </Kartu>
+
       {/* ── Ubin ringkas ───────────────────────────────────────────── */}
       <JalaUbin>
         <Ubin
@@ -224,7 +308,7 @@ export default function Dasbor() {
               {formatUang(ringkasan.labaTerealisasi, dasar, { ringkas: true })}
             </span>
           }
-          sub="dari yang sudah dijual"
+          sub="dari yang sudah dijual, sejak awal"
         />
         <Ubin
           label="Kas menganggur"
@@ -248,11 +332,11 @@ export default function Dasbor() {
         <Ubin
           label="Win rate"
           ikon={<Sparkles size={12} />}
-          nilai={statistik.winRate === null ? "—" : formatPersen(statistik.winRate, 1, false)}
+          nilai={kinerjaTrade.winRate === null ? "—" : formatPersen(kinerjaTrade.winRate, 1, false)}
           sub={
-            statistik.totalTertutup
-              ? `${statistik.menang} menang dari ${statistik.totalTertutup} trade`
-              : "belum ada trade ditutup"
+            kinerjaTrade.total
+              ? `${kinerjaTrade.menang} menang dari ${kinerjaTrade.total} trade`
+              : "belum ada posisi yang ditutup"
           }
         />
       </JalaUbin>

@@ -73,6 +73,12 @@ export interface JurnalEntri {
   pelajaran?: string;
   /** Kalau entri ini lahir dari sebuah saran AI. */
   idSaran?: string;
+  /** Transaksi beli yang mengisi entri ini, kalau entrinya diambil dari
+   *  riwayat transaksi dan bukan diketik ulang. Disimpan supaya harga entry di
+   *  jurnal bisa ditelusuri balik ke struk brokernya. */
+  idTransaksiMasuk?: string;
+  /** Transaksi jual yang menutup entri ini. */
+  idTransaksiKeluar?: string;
   dibuatPada: number;
 }
 

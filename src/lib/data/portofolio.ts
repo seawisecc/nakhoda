@@ -6,8 +6,9 @@ import type { NamaKoleksi } from "./koleksi";
 import { useData } from "./penyedia";
 import { bangunPosisi, nilaiPosisi, type HargaPasar } from "@/lib/hitung/posisi";
 import {
-  returnBulanBerjalan, ringkasPortofolio, statistikJurnal,
+  realisasiBulanBerjalan, returnBulanBerjalan, ringkasPortofolio, statistikJurnal,
 } from "@/lib/hitung/kinerja";
+import { bangunTrade, statistikTrade, usulkanPenutupan } from "@/lib/hitung/trade";
 import { KURS_CADANGAN, type Kurs } from "@/lib/hitung/uang";
 import { hariIni } from "@/lib/tanggal";
 
@@ -69,6 +70,37 @@ export function usePortofolio() {
   );
 
   const statistik = useMemo(() => statistikJurnal(jurnal), [jurnal]);
+
+  // Trade diturunkan dari transaksi, bukan dari jurnal. Ini yang membuat win
+  // rate dan lama hold terisi untuk posisi yang sudah ditutup jauh sebelum
+  // jurnalnya sempat ditulis.
+  const trade = useMemo(() => bangunTrade(transaksi, kurs), [transaksi, kurs]);
+
+  const kinerjaTrade = useMemo(
+    () => statistikTrade(trade, pengaturan.mataUangDasar, kurs),
+    [trade, pengaturan.mataUangDasar, kurs],
+  );
+
+  const usulanTutup = useMemo(
+    () => usulkanPenutupan(jurnal, trade, kurs),
+    [jurnal, trade, kurs],
+  );
+
+  const realisasiBulan = useMemo(
+    () =>
+      realisasiBulanBerjalan({
+        transaksi,
+        arus: arusModal,
+        targetMinPersen: pengaturan.targetBulananMin,
+        targetMaksPersen: pengaturan.targetBulananMax,
+        dasar: pengaturan.mataUangDasar,
+        kurs,
+      }),
+    [
+      transaksi, arusModal, pengaturan.targetBulananMin,
+      pengaturan.targetBulananMax, pengaturan.mataUangDasar, kurs,
+    ],
+  );
 
   const hargaTertua = useMemo(() => {
     const relevan = hargaCache.filter((h) => posisiAktif.some((p) => p.ticker === h.ticker));
@@ -167,6 +199,10 @@ export function usePortofolio() {
     ringkasan,
     dietz,
     statistik,
+    trade,
+    kinerjaTrade,
+    usulanTutup,
+    realisasiBulan,
     hargaTertua,
     menyegarkan,
     pesanSegar,

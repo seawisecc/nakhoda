@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   HasilJurnal, JenisAset, JurnalEntri, MataUang, Saran, StatusJurnal,
 } from "@/types";
 import { useData, buatId } from "@/lib/data/penyedia";
 import { rMultiple } from "@/lib/hitung/kinerja";
-import { bacaAngka, formatAngka } from "@/lib/format";
-import { hariIni } from "@/lib/tanggal";
+import type { UsulanTutup } from "@/lib/hitung/trade";
+import { bacaAngka, formatAngka, formatQty, formatUang } from "@/lib/format";
+import { formatTanggal, hariIni } from "@/lib/tanggal";
 import { AreaTeks, Bidang, Isian, IsianAngka, Lencana, Pilihan, Tombol } from "@/components/ui/dasar";
 import { KakiPanel, Panel } from "@/components/ui/panel";
 import { HasilRisiko } from "./kalkulator-risiko";
 
 interface Isi {
+  /** Transaksi beli sumber isian ini. String kosong berarti diketik manual. */
+  idTransaksiMasuk: string;
+  idTransaksiKeluar: string;
   tanggal: string;
   ticker: string;
   jenisAset: JenisAset;
@@ -30,8 +34,14 @@ interface Isi {
   pelajaran: string;
 }
 
-function isiAwal(e?: JurnalEntri | null, dariSaran?: Saran | null): Isi {
+function isiAwal(
+  e?: JurnalEntri | null,
+  dariSaran?: Saran | null,
+  usulan?: UsulanTutup | null,
+): Isi {
   return {
+    idTransaksiMasuk: e?.idTransaksiMasuk ?? "",
+    idTransaksiKeluar: e?.idTransaksiKeluar ?? usulan?.trade.idTransaksi.at(-1) ?? "",
     tanggal: e?.tanggal ?? dariSaran?.tanggal ?? hariIni(),
     ticker: e?.ticker ?? dariSaran?.ticker ?? "",
     jenisAset: e?.jenisAset ?? dariSaran?.jenisAset ?? "saham",
@@ -42,10 +52,15 @@ function isiAwal(e?: JurnalEntri | null, dariSaran?: Saran | null): Isi {
     qty: e?.qty ? String(e.qty) : "",
     thesisTeknikal: e?.thesisTeknikal ?? dariSaran?.catatanTeknikal ?? "",
     thesisFundamental: e?.thesisFundamental ?? dariSaran?.catatanFundamental ?? "",
-    status: e?.status ?? "terbuka",
-    hasil: e?.hasil ?? "",
-    hargaKeluar: e?.hargaKeluar !== undefined ? String(e.hargaKeluar) : "",
-    tanggalKeluar: e?.tanggalKeluar ?? "",
+    // Usulan penutupan mengalahkan nilai entri yang tersimpan, karena satu-
+    // satunya cara form ini dibuka dengan usulan adalah lewat tombol "tutup
+    // dari transaksi". Angkanya datang dari struk broker, bukan dari ingatan.
+    status: usulan ? "tertutup" : (e?.status ?? "terbuka"),
+    hasil: usulan?.hasil ?? e?.hasil ?? "",
+    hargaKeluar: usulan
+      ? String(Number(usulan.hargaKeluar.toFixed(6)))
+      : e?.hargaKeluar !== undefined ? String(e.hargaKeluar) : "",
+    tanggalKeluar: usulan?.tanggalKeluar ?? e?.tanggalKeluar ?? "",
     pelajaran: e?.pelajaran ?? "",
   };
 }
@@ -53,12 +68,14 @@ function isiAwal(e?: JurnalEntri | null, dariSaran?: Saran | null): Isi {
 /** Isinya dipisah supaya keadaan awal formulir lahir dari useState saat panel
  *  dibuka, bukan dari efek yang menyetel ulang state setelah render pertama. */
 export function FormJurnal({
-  terbuka, tutup, sunting, dariSaran, modal,
+  terbuka, tutup, sunting, dariSaran, usulan, modal,
 }: {
   terbuka: boolean;
   tutup: () => void;
   sunting?: JurnalEntri | null;
   dariSaran?: Saran | null;
+  /** Usulan penutupan dari transaksi jual, kalau form dibuka lewat tombolnya. */
+  usulan?: UsulanTutup | null;
   /** Modal yang dipakai kalkulator ukuran posisi, dalam mata uang entri. */
   modal: number;
 }) {
@@ -66,15 +83,20 @@ export function FormJurnal({
     <Panel
       terbuka={terbuka}
       tutup={tutup}
-      judul={sunting ? "Ubah entri jurnal" : "Entri jurnal baru"}
-      keterangan="Tulis alasannya sekarang, saat masih terasa jelas. Nanti setelah posisi ditutup, alasan inilah yang bisa dinilai, bukan ingatan."
+      judul={usulan ? "Tutup entri jurnal" : sunting ? "Ubah entri jurnal" : "Entri jurnal baru"}
+      keterangan={
+        usulan
+          ? "Harga dan tanggal keluar diambil dari transaksi jualnya. Yang tersisa cuma satu hal yang tidak bisa diambil dari mana pun: pelajarannya."
+          : "Tulis alasannya sekarang, saat masih terasa jelas. Nanti setelah posisi ditutup, alasan inilah yang bisa dinilai, bukan ingatan."
+      }
       lebar="lebar"
     >
       <IsiFormJurnal
-        key={sunting?.id ?? dariSaran?.id ?? "baru"}
+        key={`${sunting?.id ?? dariSaran?.id ?? "baru"}-${usulan?.trade.id ?? ""}`}
         tutup={tutup}
         sunting={sunting}
         dariSaran={dariSaran}
+        usulan={usulan}
         modal={modal}
       />
     </Panel>
@@ -82,20 +104,52 @@ export function FormJurnal({
 }
 
 function IsiFormJurnal({
-  tutup, sunting, dariSaran, modal,
+  tutup, sunting, dariSaran, usulan, modal,
 }: {
   tutup: () => void;
   sunting?: JurnalEntri | null;
   dariSaran?: Saran | null;
+  usulan?: UsulanTutup | null;
   modal: number;
 }) {
-  const { simpan, pengguna } = useData();
-  const [isi, setIsi] = useState<Isi>(() => isiAwal(sunting, dariSaran));
+  const { simpan, pengguna, transaksi } = useData();
+  const [isi, setIsi] = useState<Isi>(() => isiAwal(sunting, dariSaran, usulan));
   const [risiko, setRisiko] = useState("1");
   const [galat, setGalat] = useState<Record<string, string>>({});
   const [sibuk, setSibuk] = useState(false);
 
   const ubah = <K extends keyof Isi>(k: K, v: Isi[K]) => setIsi((s) => ({ ...s, [k]: v }));
+
+  // Hanya pembelian: entri jurnal selalu lahir dari posisi yang dibuka. Dibatasi
+  // 40 terbaru supaya daftarnya tetap bisa dipindai mata, bukan digulir.
+  const transaksiBeli = useMemo(
+    () =>
+      transaksi
+        .filter((t) => t.sisi === "beli")
+        .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || (b.dibuatPada || 0) - (a.dibuatPada || 0))
+        .slice(0, 40),
+    [transaksi],
+  );
+
+  /** Menyalin transaksi beli ke isian. Stop dan target sengaja tidak ikut
+   *  terisi: keduanya keputusan, bukan data, dan tidak ada di struk broker. */
+  function pilihTransaksi(id: string) {
+    const t = transaksi.find((x) => x.id === id);
+    if (!t) {
+      ubah("idTransaksiMasuk", "");
+      return;
+    }
+    setIsi((s) => ({
+      ...s,
+      idTransaksiMasuk: t.id,
+      ticker: t.ticker,
+      jenisAset: t.jenisAset,
+      mataUang: t.mataUang,
+      tanggal: t.tanggal,
+      entry: String(t.harga),
+      qty: String(t.qty),
+    }));
+  }
 
   const entry = bacaAngka(isi.entry);
   const stop = bacaAngka(isi.stop);
@@ -151,6 +205,10 @@ function IsiFormJurnal({
         if (isi.tanggalKeluar) dok.tanggalKeluar = isi.tanggalKeluar;
       }
       if (isi.pelajaran.trim()) dok.pelajaran = isi.pelajaran.trim();
+      if (isi.idTransaksiMasuk) dok.idTransaksiMasuk = isi.idTransaksiMasuk;
+      if (isi.status === "tertutup" && isi.idTransaksiKeluar) {
+        dok.idTransaksiKeluar = isi.idTransaksiKeluar;
+      }
       const idSaran = sunting?.idSaran ?? dariSaran?.id;
       if (idSaran) dok.idSaran = idSaran;
 
@@ -177,6 +235,40 @@ function IsiFormJurnal({
               Entri ini akan ditautkan ke saran {dariSaran.ticker} tanggal {dariSaran.tanggal}.
             </span>
           </div>
+        ) : null}
+
+        {usulan ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border border-bordr bg-surface-sunk px-3.5 py-2.5">
+            <Lencana nada="info">dari transaksi</Lencana>
+            <span className="text-[12px] text-ink-soft">
+              Posisi {usulan.trade.ticker} ditutup {formatTanggal(usulan.tanggalKeluar)} setelah{" "}
+              {usulan.trade.hariHold} hari, hasil bersih{" "}
+              <span className="angka">
+                {formatUang(usulan.trade.hasil ?? 0, usulan.trade.mataUang)}
+              </span>
+              .
+            </span>
+          </div>
+        ) : null}
+
+        {!sunting ? (
+          <Bidang
+            label="Ambil dari transaksi"
+            petunjuk="Mengisi ticker, tanggal, harga entry, dan jumlah unit dari transaksi beli yang sudah tercatat. Stop dan target tetap kamu yang tentukan."
+          >
+            <Pilihan
+              value={isi.idTransaksiMasuk}
+              onChange={(e) => pilihTransaksi(e.target.value)}
+            >
+              <option value="">Ketik manual</option>
+              {transaksiBeli.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.ticker} · {formatTanggal(t.tanggal)} · {formatQty(t.qty)} @{" "}
+                  {formatUang(t.harga, t.mataUang)}
+                </option>
+              ))}
+            </Pilihan>
+          </Bidang>
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-4">

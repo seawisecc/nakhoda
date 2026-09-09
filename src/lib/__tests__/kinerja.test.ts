@@ -1,6 +1,8 @@
 import {
   modifiedDietz,
   nilaiBukuPada,
+  realisasiPeriode,
+  realisasiTiapJual,
   returnBulanBerjalan,
   ringkasPortofolio,
   rMultiple,
@@ -307,5 +309,96 @@ grup("statistikJurnal", () => {
 
   uji("rrRencana null kalau stop sama dengan entry", () => {
     samaDengan(rrRencana({ hargaEntry: 100, stopLoss: 100, targetHarga: 120 }), null);
+  });
+});
+
+grup("realisasiTiapJual", () => {
+  uji("satu baris per penjualan, memakai biaya rata-rata", () => {
+    const r = realisasiTiapJual([
+      tx({ qty: 10, harga: 100, tanggal: "2026-09-01" }),
+      tx({ qty: 10, harga: 200, tanggal: "2026-09-05" }),
+      tx({ qty: 5, harga: 250, sisi: "jual", tanggal: "2026-09-10" }),
+      tx({ qty: 5, harga: 300, sisi: "jual", tanggal: "2026-10-02" }),
+    ], "IDR", kurs);
+    samaDengan(r.length, 2);
+    mendekati(r[0].jumlah, 500);
+    mendekati(r[1].jumlah, 750);
+    samaDengan(r[1].tanggal, "2026-10-02");
+  });
+
+  uji("pembelian saja tidak menghasilkan baris realisasi", () => {
+    samaDengan(realisasiTiapJual([tx({ qty: 10, harga: 100 })], "IDR", kurs).length, 0);
+  });
+});
+
+grup("realisasiPeriode", () => {
+  const transaksi = [
+    tx({ qty: 10, harga: 100, tanggal: "2026-08-20" }),
+    // Untung 500 di dalam periode.
+    tx({ qty: 5, harga: 200, sisi: "jual", tanggal: "2026-09-10" }),
+    // Untung 500 lagi, tapi di luar periode.
+    tx({ qty: 5, harga: 200, sisi: "jual", tanggal: "2026-10-05" }),
+  ];
+  const modal = [arus({ tanggal: "2026-08-01", jumlah: 10_000, tipe: "awal" })];
+
+  const opsi = {
+    transaksi, arus: modal, mulai: "2026-09-01", akhir: "2026-09-30",
+    targetMinPersen: 3, targetMaksPersen: 10, dasar: "IDR" as const, kurs,
+  };
+
+  uji("hanya menghitung penjualan di dalam periode", () => {
+    const r = realisasiPeriode(opsi);
+    mendekati(r.realisasi, 500);
+    samaDengan(r.jumlahJual, 1);
+  });
+
+  uji("persen diukur terhadap modal bersih, bukan nilai portofolio", () => {
+    const r = realisasiPeriode(opsi);
+    mendekati(r.modal, 10_000);
+    mendekati(r.persen!, 5);
+    samaDengan(r.status, "tercapai");
+  });
+
+  uji("target persen diterjemahkan ke rupiah", () => {
+    const r = realisasiPeriode(opsi);
+    mendekati(r.targetMin, 300);
+    mendekati(r.targetMax, 1000);
+  });
+
+  uji("di bawah target minimum berstatus belum", () => {
+    const r = realisasiPeriode({ ...opsi, targetMinPersen: 8, targetMaksPersen: 12 });
+    samaDengan(r.status, "belum");
+  });
+
+  uji("di atas target maksimum berstatus lampaui", () => {
+    const r = realisasiPeriode({ ...opsi, targetMinPersen: 1, targetMaksPersen: 4 });
+    samaDengan(r.status, "lampaui");
+  });
+
+  uji("realisasi negatif berstatus rugi, bukan belum", () => {
+    const r = realisasiPeriode({
+      ...opsi,
+      transaksi: [
+        tx({ qty: 10, harga: 100, tanggal: "2026-08-20" }),
+        tx({ qty: 10, harga: 80, sisi: "jual", tanggal: "2026-09-10" }),
+      ],
+    });
+    mendekati(r.realisasi, -200);
+    samaDengan(r.status, "rugi");
+  });
+
+  uji("tanpa modal tercatat, persennya null dan bukan nol", () => {
+    const r = realisasiPeriode({ ...opsi, arus: [] });
+    samaDengan(r.persen, null);
+    samaDengan(r.status, "kosong");
+  });
+
+  uji("setoran di tengah periode ikut menaikkan penyebut", () => {
+    const r = realisasiPeriode({
+      ...opsi,
+      arus: [...modal, arus({ tanggal: "2026-09-15", jumlah: 10_000, tipe: "setor" })],
+    });
+    mendekati(r.modal, 20_000);
+    mendekati(r.persen!, 2.5);
   });
 });
