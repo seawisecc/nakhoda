@@ -5,11 +5,12 @@ import Link from "next/link";
 import {
   CandlestickChart, Check, LayoutGrid, Rows3, Sparkles, Trash2, X,
 } from "lucide-react";
-import type { Saran } from "@/types";
+import type { MataUang, Saran } from "@/types";
 import { usePortofolio } from "@/lib/data/portofolio";
-import { formatUang } from "@/lib/format";
+import { formatAngka, formatUang } from "@/lib/format";
 import { formatTanggal } from "@/lib/tanggal";
 import { rrRencana } from "@/lib/hitung/kinerja";
+import { konversi, type Kurs } from "@/lib/hitung/uang";
 import { Kartu, Kosong, Lencana, Tombol } from "@/components/ui/dasar";
 import { KakiPanel, Panel } from "@/components/ui/panel";
 import { FormJurnal } from "@/components/formulir/form-jurnal";
@@ -42,12 +43,47 @@ function tuanRumah(url: string): string {
   }
 }
 
+/** Harga saran, lengkap dengan padanannya di mata uang dasar.
+ *
+ *  Riset saham AS dan kripto global bekerja dalam dolar, sedangkan yang dilihat
+ *  Agus di layar broker adalah rupiah. Tanpa padanan ini, tiap kali memeriksa
+ *  apakah level sudah tersentuh dia harus mengalikan sendiri di kepala, dan
+ *  perkalian di kepala pada angka harga adalah cara termurah untuk salah baca
+ *  satu digit.
+ *
+ *  Padanannya sengaja lebih kecil dan lebih redup: yang mengikat adalah angka
+ *  aslinya. Nilai rupiahnya hasil konversi kurs hari ini, bukan harga yang
+ *  pernah benar-benar dikutip di mana pun, dan itu tidak boleh terbaca setara. */
+function Harga({
+  label, nilai, mataUang, dasar, kurs, warna,
+}: {
+  label: string;
+  nilai: number;
+  mataUang: MataUang;
+  dasar: MataUang;
+  kurs: Kurs;
+  warna: string;
+}) {
+  const padanan = mataUang === dasar ? null : konversi(nilai, mataUang, dasar, kurs);
+  return (
+    <span className="text-ink-faint">
+      {label} <span className={cn("angka", warna)}>{formatUang(nilai, mataUang)}</span>
+      {padanan !== null ? (
+        <span className="angka ml-1 text-ink-faint">
+          ({formatUang(padanan, dasar, { ringkas: true })})
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 const NADA_REKOMENDASI = {
   beli: "naik", jual: "turun", tahan: "netral", pantau: "info",
 } as const;
 
 export default function HalamanSaran() {
-  const { saran, alokasi, jurnal, ringkasan, simpan, hapus } = usePortofolio();
+  const { saran, alokasi, jurnal, ringkasan, pengaturan, kurs, simpan, hapus } = usePortofolio();
+  const dasar = pengaturan.mataUangDasar;
   const [saring, setSaring] = useState<Saring>("menunggu");
   const [tampilan, setTampilan] = useState<Tampilan>("kartu");
   const [buatJurnal, setBuatJurnal] = useState<Saran | null>(null);
@@ -62,6 +98,11 @@ export default function HalamanSaran() {
   );
 
   const jumlah = (s: Saran["status"]) => saran.filter((x) => x.status === s).length;
+
+  // Baris kurs cuma muncul kalau memang ada angka yang dikonversi. Menampilkan
+  // kurs di halaman yang seluruh angkanya sudah rupiah cuma menambah satu
+  // kalimat yang tidak menjelaskan apa pun.
+  const adaKonversi = terlihat.some((x) => x.mataUang !== dasar);
 
   async function tandai(s: Saran, status: Saran["status"]) {
     await simpan("saran", { ...s, status });
@@ -123,6 +164,15 @@ export default function HalamanSaran() {
           </div>
         </div>
 
+        {adaKonversi ? (
+          <p className="mt-3 text-[12px] leading-relaxed text-ink-faint">
+            Angka dalam kurung adalah padanan {dasar} pada kurs{" "}
+            <span className="angka">{formatAngka(kurs.usdIdr, 0)}</span>
+            {kurs.sumber ? ` (${kurs.sumber})` : ""}. Itu hasil konversi hari ini, bukan harga
+            yang pernah dikutip; yang mengikat tetap angka aslinya.
+          </p>
+        ) : null}
+
         <div className="mt-4">
           {terlihat.length === 0 ? (
             <Kosong
@@ -133,6 +183,8 @@ export default function HalamanSaran() {
           ) : tampilan === "tabel" ? (
             <TabelSaran
               daftar={terlihat}
+              dasar={dasar}
+              kurs={kurs}
               tandai={tandai}
               buatJurnal={setBuatJurnal}
               hapus={setAkanHapus}
@@ -159,19 +211,22 @@ export default function HalamanSaran() {
                     {s.entrySaran || s.stopSaran || s.targetSaran ? (
                       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px]">
                         {s.entrySaran ? (
-                          <span className="text-ink-faint">
-                            Entry <span className="angka text-ink-soft">{formatUang(s.entrySaran, s.mataUang)}</span>
-                          </span>
+                          <Harga
+                            label="Entry" nilai={s.entrySaran} mataUang={s.mataUang}
+                            dasar={dasar} kurs={kurs} warna="text-ink-soft"
+                          />
                         ) : null}
                         {s.stopSaran ? (
-                          <span className="text-ink-faint">
-                            Stop <span className="angka text-turun">{formatUang(s.stopSaran, s.mataUang)}</span>
-                          </span>
+                          <Harga
+                            label="Stop" nilai={s.stopSaran} mataUang={s.mataUang}
+                            dasar={dasar} kurs={kurs} warna="text-turun"
+                          />
                         ) : null}
                         {s.targetSaran ? (
-                          <span className="text-ink-faint">
-                            Target <span className="angka text-naik">{formatUang(s.targetSaran, s.mataUang)}</span>
-                          </span>
+                          <Harga
+                            label="Target" nilai={s.targetSaran} mataUang={s.mataUang}
+                            dasar={dasar} kurs={kurs} warna="text-naik"
+                          />
                         ) : null}
                         {rr !== null ? (
                           <span className="text-ink-faint">
@@ -336,13 +391,37 @@ export default function HalamanSaran() {
  * Yang tidak muat di tabel (thesis, pembatal, sumber) tetap ada di kartu.
  */
 function TabelSaran({
-  daftar, tandai, buatJurnal, hapus,
+  daftar, dasar, kurs, tandai, buatJurnal, hapus,
 }: {
   daftar: readonly Saran[];
+  dasar: MataUang;
+  kurs: Kurs;
   tandai: (s: Saran, status: Saran["status"]) => Promise<void>;
   buatJurnal: (s: Saran) => void;
   hapus: (s: Saran) => void;
 }) {
+  /** Sel harga: angka asli di baris pertama, padanan mata uang dasar di baris
+   *  kedua. Dua baris, bukan dua kolom, supaya kolomnya tidak berlipat ganda
+   *  dan tabelnya tetap bisa dipindai dari atas ke bawah per jenis harga. */
+  const SelHarga = ({ nilai, mataUang, warna }: {
+    nilai: number | undefined;
+    mataUang: MataUang;
+    warna: string;
+  }) => {
+    if (!nilai) return <td className="angka px-3 py-2.5 text-right text-ink-faint">—</td>;
+    const padanan = mataUang === dasar ? null : konversi(nilai, mataUang, dasar, kurs);
+    return (
+      <td className="px-3 py-2.5 text-right whitespace-nowrap">
+        <span className={cn("angka block", warna)}>{formatUang(nilai, mataUang)}</span>
+        {padanan !== null ? (
+          <span className="angka block text-[11px] text-ink-faint">
+            {formatUang(padanan, dasar, { ringkas: true })}
+          </span>
+        ) : null}
+      </td>
+    );
+  };
+
   const KEPALA = [
     "Ticker", "Rekomendasi", "Entry", "Stop", "Target", "R:R", "Horizon",
     "Tanggal", "Status", "",
@@ -381,15 +460,9 @@ function TabelSaran({
                 <td className="px-3 py-2.5">
                   <Lencana nada={NADA_REKOMENDASI[s.rekomendasi]}>{s.rekomendasi}</Lencana>
                 </td>
-                <td className="angka px-3 py-2.5 text-right text-ink-soft">
-                  {s.entrySaran ? formatUang(s.entrySaran, s.mataUang) : "—"}
-                </td>
-                <td className="angka px-3 py-2.5 text-right text-turun">
-                  {s.stopSaran ? formatUang(s.stopSaran, s.mataUang) : "—"}
-                </td>
-                <td className="angka px-3 py-2.5 text-right text-naik">
-                  {s.targetSaran ? formatUang(s.targetSaran, s.mataUang) : "—"}
-                </td>
+                <SelHarga nilai={s.entrySaran} mataUang={s.mataUang} warna="text-ink-soft" />
+                <SelHarga nilai={s.stopSaran} mataUang={s.mataUang} warna="text-turun" />
+                <SelHarga nilai={s.targetSaran} mataUang={s.mataUang} warna="text-naik" />
                 <td
                   className={cn(
                     "angka px-3 py-2.5 text-right",
