@@ -111,8 +111,8 @@ src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, kinerja, risiko, tinjauan, level, biaya, tonggak
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
-scripts/            tambah-saran, set-kunci, deploy-rules, buat-ikon,
-                    validasi-palet
+scripts/            tambah-saran, tambah-alokasi, set-kunci, deploy-rules,
+                    buat-ikon, validasi-palet
 ```
 
 App jalan tanpa konfigurasi apa pun dalam **mode lokal** (localStorage), dan

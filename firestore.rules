@@ -62,8 +62,13 @@ service cloud.firestore {
       allow update: if pemilikTetap();
     }
 
-    // Permintaan riset. Ditulis app, dibaca dan diperbarui watcher di laptop
-    // lewat Admin SDK (yang melewati aturan ini sepenuhnya).
+    // Rencana belanja kas. Ditulis dari terminal lewat Admin SDK, dibaca app.
+    match /allocationPlans/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
     match /snapshots/{id} {
       allow read, delete: if miliknya();
       allow create: if akanJadiMiliknya();

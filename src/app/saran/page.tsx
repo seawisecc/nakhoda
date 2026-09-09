@@ -15,6 +15,7 @@ import { KakiPanel, Panel } from "@/components/ui/panel";
 import { FormJurnal } from "@/components/formulir/form-jurnal";
 import { TempelSaran } from "@/components/formulir/tempel-saran";
 import { SalinPrompt } from "@/components/salin-prompt";
+import { PanelAlokasi } from "@/components/panel-alokasi";
 import { cn } from "@/lib/cn";
 
 type Saring = "menunggu" | "diambil" | "diabaikan" | "semua";
@@ -46,7 +47,7 @@ const NADA_REKOMENDASI = {
 } as const;
 
 export default function HalamanSaran() {
-  const { saran, jurnal, ringkasan, simpan, hapus } = usePortofolio();
+  const { saran, alokasi, jurnal, ringkasan, simpan, hapus } = usePortofolio();
   const [saring, setSaring] = useState<Saring>("menunggu");
   const [tampilan, setTampilan] = useState<Tampilan>("kartu");
   const [buatJurnal, setBuatJurnal] = useState<Saran | null>(null);
@@ -68,6 +69,7 @@ export default function HalamanSaran() {
 
   return (
     <div className="space-y-4">
+      <PanelAlokasi daftar={alokasi} />
 
       <Kartu>
         <div className="flex flex-wrap items-center gap-1.5">

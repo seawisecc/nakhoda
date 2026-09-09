@@ -100,3 +100,18 @@ Script menolak sendiri dua hal, dan menolaknya benar-benar:
 Kalau ditolak, perbaiki angkanya atau batalkan hipotesisnya. Jangan dipaksa
 lewat dengan mengarang stop yang lebih dekat supaya rasionya lolos; itu persis
 cara membuat angka yang salah terlihat resmi.
+
+Rencana belanja kasnya disimpan terpisah, dan wajib ikut disimpan, bukan cuma
+ditulis di chat:
+
+```bash
+npm run alokasi -- \
+  --ringkasan "Target bulan ini sudah tercapai, jadi tidak ada yang menuntut aksi." \
+  --pos '[{"label":"CVX","jumlah":1250000,"alasan":"risiko 1% dari modal"}]' \
+  --kas-ditahan 2500000 --total 8537296
+```
+
+Muncul sebagai panel "Rencana belanja kas" di atas daftar saran. Yang
+ditampilkan hanya yang terbaru: rencana alokasi basi bukan cuma tidak berguna,
+dia menyesatkan, karena angkanya dihitung dari kas yang sudah tidak segitu
+lagi.

@@ -10,6 +10,7 @@
     "lint": "eslint",
     "test": "tsx src/lib/__tests__/jalankan.mts",
     "saran": "tsx scripts/tambah-saran.ts",
+    "alokasi": "tsx scripts/tambah-alokasi.ts",
     "deploy-rules": "tsx scripts/deploy-rules.ts",
     "verify": "npm run lint && npm test && npm run build",
     "kunci": "tsx scripts/set-kunci.ts",

@@ -53,11 +53,17 @@ Aturan yang tidak boleh dilanggar:
    sentral, rilis inflasi. Stop ketat tepat sebelum peristiwa biner bukan
    pelindung, cuma tiket lotre. Kalau begitu keadaannya, katakan dan jangan
    pasang stop pura-pura.
-10. Tutup dengan RINGKASAN ALOKASI: dengan kas yang ada sekarang, sebaiknya
-   dibelanjakan seperti apa. Sebutkan berapa yang ditahan, berapa per
-   hipotesis, dan mana hipotesis yang sebenarnya satu taruhan yang sama
-   sehingga tidak boleh dihitung sebagai dua. Ini pendapatmu, dan saya ingin
-   melihatnya sebagai pendapat, bukan sebagai perintah.
+10. Tutup dengan RINGKASAN ALOKASI dan SIMPAN, jangan cuma ditulis di chat.
+   Isinya: dengan kas yang ada sekarang sebaiknya dibelanjakan seperti apa,
+   berapa yang ditahan, berapa per hipotesis, dan mana hipotesis yang
+   sebenarnya satu taruhan yang sama sehingga tidak boleh dihitung sebagai
+   dua. Ini pendapatmu, dan saya ingin melihatnya sebagai pendapat, bukan
+   sebagai perintah.
+
+     npm run alokasi -- \\
+       --ringkasan "..." \\
+       --pos '[{"label":"CVX","jumlah":1250000,"alasan":"risiko 1% dari modal"}]' \\
+       --kas-ditahan 2500000 --total 8537296
 
 Simpan tiap hipotesis yang lolos dengan satu perintah:
 

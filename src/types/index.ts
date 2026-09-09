@@ -119,6 +119,37 @@ export interface Saran {
   dibuatPada: number;
 }
 
+/** Rencana belanja kas pada satu tanggal.
+ *
+ *  Dipisahkan dari Saran karena pertanyaannya beda tingkat. Saran menjawab
+ *  "apakah aset ini layak", satu ticker satu kartu. Yang di sini menjawab
+ *  "dengan kas segini, sebaiknya dibelanjakan seperti apa", dan jawabannya
+ *  justru sering berupa hubungan antar-saran: dua hipotesis yang kelihatan
+ *  terpisah tapi sebenarnya satu taruhan yang sama tidak akan pernah terlihat
+ *  kalau tiap saran cuma dibaca sendiri-sendiri.
+ *
+ *  Tidak ikut dihitung di win rate. Ini pendapat tentang ukuran, bukan
+ *  hipotesis tentang arah harga, dan menilainya menang atau kalah tidak punya
+ *  arti. */
+export interface Alokasi {
+  id: string;
+  uid: string;
+  tanggal: string;
+  sumber: string;
+  /** Pendapatnya, teks bebas. Ini yang dibaca lebih dulu. */
+  ringkasan: string;
+  /** Baris rencana belanja. Boleh kosong kalau kesimpulannya justru tidak
+   *  membeli apa pun, dan itu kesimpulan yang sah. */
+  pos: { label: string; jumlah: number; alasan?: string }[];
+  /** Kas yang sengaja tidak dibelanjakan. */
+  kasDitahan?: number;
+  /** Total portofolio saat catatan ini dibuat. Disimpan supaya angka rupiahnya
+   *  masih bisa dibaca dalam konteks yang benar berbulan-bulan kemudian. */
+  totalSaatItu?: number;
+  mataUang: MataUang;
+  dibuatPada: number;
+}
+
 export interface HargaCache {
   /** Sama dengan `ticker`. Ada supaya semua dokumen punya bentuk yang sama
    *  di lapisan penyimpanan, apa pun koleksinya. */

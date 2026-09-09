@@ -5,7 +5,7 @@ import {
 } from "react";
 import type {
   ArusModal, HargaCache, JurnalEntri, KursCache, ModeData, Pengaturan,
-  Saran, Snapshot, Transaksi,
+  Alokasi, Saran, Snapshot, Transaksi,
 } from "@/types";
 import {
   KOLEKSI, KOLEKSI_DOKUMEN, type KoleksiDokumen, type NamaKoleksi,
@@ -43,6 +43,7 @@ interface IsiData {
   arusModal: ArusModal[];
   jurnal: JurnalEntri[];
   saran: Saran[];
+  alokasi: Alokasi[];
   snapshot: Snapshot[];
   hargaCache: HargaCache[];
   kursCache: KursCache[];
@@ -68,7 +69,7 @@ export function buatId(): string {
 type PetaDokumen = Record<KoleksiDokumen, { id: string }[]>;
 
 const KOSONG_FIRESTORE: PetaDokumen = {
-  transaksi: [], arusModal: [], jurnal: [], saran: [],
+  transaksi: [], arusModal: [], jurnal: [], saran: [], alokasi: [],
   snapshot: [], hargaCache: [], kursCache: [],
 };
 
@@ -92,6 +93,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
   const arusLokal = useKoleksiLokal<ArusModal>("arusModal", lokal);
   const jurnalLokal = useKoleksiLokal<JurnalEntri>("jurnal", lokal);
   const saranLokal = useKoleksiLokal<Saran>("saran", lokal);
+  const alokasiLokal = useKoleksiLokal<Alokasi>("alokasi", lokal);
   const snapshotLokal = useKoleksiLokal<Snapshot>("snapshot", lokal);
   const hargaLokal = useKoleksiLokal<HargaCache>("hargaCache", lokal);
   const kursLokal = useKoleksiLokal<KursCache>("kursCache", lokal);
@@ -285,7 +287,8 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
     const dok: PetaDokumen = lokal
       ? {
           transaksi: transaksiLokal, arusModal: arusLokal, jurnal: jurnalLokal,
-          saran: saranLokal, snapshot: snapshotLokal, hargaCache: hargaLokal,
+          saran: saranLokal, alokasi: alokasiLokal, snapshot: snapshotLokal,
+          hargaCache: hargaLokal,
           kursCache: kursLokal,
         }
       : pengguna
@@ -304,6 +307,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
       arusModal: dok.arusModal as ArusModal[],
       jurnal: dok.jurnal as JurnalEntri[],
       saran: dok.saran as Saran[],
+      alokasi: dok.alokasi as Alokasi[],
       snapshot: dok.snapshot as Snapshot[],
       hargaCache: dok.hargaCache as HargaCache[],
       kursCache: dok.kursCache as KursCache[],
@@ -312,7 +316,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
     };
   }, [
     mode, lokal, siapAuth, siapFirestore, pengguna, galatAuth, dariFirestore,
-    transaksiLokal, arusLokal, jurnalLokal, saranLokal, snapshotLokal,
+    transaksiLokal, arusLokal, jurnalLokal, saranLokal, alokasiLokal, snapshotLokal,
     hargaLokal, kursLokal, pengaturan, masuk, keluar, simpan, hapus,
     simpanPengaturan, bersihkanSemua,
   ]);

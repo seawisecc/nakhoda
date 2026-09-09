@@ -9,6 +9,7 @@ export const KOLEKSI = {
   arusModal: "capitalFlows",
   jurnal: "journalEntries",
   saran: "suggestions",
+  alokasi: "allocationPlans",
   hargaCache: "priceCache",
   kursCache: "fxCache",
   snapshot: "snapshots",
@@ -20,7 +21,7 @@ export type NamaKoleksi = keyof typeof KOLEKSI;
 /** Koleksi yang berisi banyak dokumen per pengguna. `pengaturan` sengaja tidak
  *  masuk: dia satu dokumen tunggal beralamat uid, bukan kumpulan. */
 export const KOLEKSI_DOKUMEN = [
-  "transaksi", "arusModal", "jurnal", "saran", "snapshot", "hargaCache",
+  "transaksi", "arusModal", "jurnal", "saran", "alokasi", "snapshot", "hargaCache",
   "kursCache",
 ] as const satisfies readonly NamaKoleksi[];
 
