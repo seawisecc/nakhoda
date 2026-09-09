@@ -14,6 +14,7 @@ import { Kartu, Kosong, Lencana, Tombol } from "@/components/ui/dasar";
 import { KakiPanel, Panel } from "@/components/ui/panel";
 import { FormJurnal } from "@/components/formulir/form-jurnal";
 import { TempelSaran } from "@/components/formulir/tempel-saran";
+import { SalinPrompt } from "@/components/salin-prompt";
 import { cn } from "@/lib/cn";
 
 type Saring = "menunggu" | "diambil" | "diabaikan" | "semua";
@@ -115,6 +116,7 @@ export default function HalamanSaran() {
                 </button>
               ))}
             </div>
+            <SalinPrompt />
             <TempelSaran />
           </div>
         </div>

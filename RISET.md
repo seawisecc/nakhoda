@@ -10,6 +10,11 @@ Konteks portofolio tidak perlu ditempelkan dengan tangan. Baca sendiri dari
 Firestore lewat Admin SDK: posisi diturunkan dari koleksi `transactions`,
 kas dan modal dari `capitalFlows`, harga terakhir dari `priceCache`.
 
+Versi ringkas yang dipakai Agus ada di `src/lib/prompt-saran.ts`, di balik
+tombol "Salin prompt" di halaman Saran. Kalau salah satunya diubah, ubah
+keduanya; dua aturan riset yang berbeda dari app yang sama adalah hal yang
+sangat sulit disadari.
+
 ---
 
 Kamu sedang membantu satu orang menyusun bahan pertimbangan untuk portofolio
