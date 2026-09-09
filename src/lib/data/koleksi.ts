@@ -12,7 +12,6 @@ export const KOLEKSI = {
   hargaCache: "priceCache",
   kursCache: "fxCache",
   snapshot: "snapshots",
-  permintaanRiset: "researchRequests",
   pengaturan: "settings",
 } as const;
 
@@ -22,7 +21,7 @@ export type NamaKoleksi = keyof typeof KOLEKSI;
  *  masuk: dia satu dokumen tunggal beralamat uid, bukan kumpulan. */
 export const KOLEKSI_DOKUMEN = [
   "transaksi", "arusModal", "jurnal", "saran", "snapshot", "hargaCache",
-  "kursCache", "permintaanRiset",
+  "kursCache",
 ] as const satisfies readonly NamaKoleksi[];
 
 export type KoleksiDokumen = (typeof KOLEKSI_DOKUMEN)[number];

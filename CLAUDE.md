@@ -12,13 +12,12 @@ data bisnis.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 167 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 196 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
-`npm run saran` (tulis satu saran lewat Admin SDK), `npm run pantau` (watcher
-riset), `npm run deploy-rules`, `npm run palet` (gate kontras dan buta warna
-untuk seluruh palet).
+`npm run saran` (tulis satu saran lewat Admin SDK), `npm run deploy-rules`,
+`npm run palet` (gate kontras dan buta warna untuk seluruh palet).
 
 ## Bahasa dan gaya
 
@@ -108,8 +107,8 @@ src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, kinerja, risiko, tinjauan, level, biaya, tonggak
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
-scripts/            tambah-saran, pantau-riset, set-kunci, deploy-rules,
-                    buat-ikon, validasi-palet
+scripts/            tambah-saran, set-kunci, deploy-rules, buat-ikon,
+                    validasi-palet
 ```
 
 App jalan tanpa konfigurasi apa pun dalam **mode lokal** (localStorage), dan
@@ -142,8 +141,6 @@ dia yang membuat app bisa dinilai tanpa setup.
   kode itu sendiri baru bisa jalan setelah satu hard reload. Cara memastikan
   bukan cuma menebak: `navigator.serviceWorker.getRegistrations()` di konsol,
   dan cek apakah kelas CSS terbaru benar-benar ada di DOM.
-- **Riset `npm run pantau` memakan memori besar.** Di laptop yang sesak,
-  prosesnya bisa dimatikan sistem di tengah jalan.
 - **Tampilan ponsel tidak bisa diuji dengan mengubah ukuran jendela.** Kalau
   jendelanya maximized, Chrome mengabaikan permintaan resize sementara tetap
   melaporkan sukses, dan `window.innerWidth` tidak berubah. Cara yang jalan:

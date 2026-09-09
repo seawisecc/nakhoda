@@ -121,11 +121,24 @@ npm run saran -- \
   --rekomendasi beli \
   --teknikal "Breakout dari konsolidasi tiga minggu, volume konfirmasi" \
   --fundamental "Guidance dinaikkan dua kuartal beruntun" \
-  --entry 228,45 --stop 210 --target 250
+  --entry 228,45 --stop 210 --target 250 \
+  --pembatal "Tutup mingguan di bawah 210, atau guidance dipangkas" \
+  --horizon 21 --rujukan "https://sumber1,https://sumber2"
 ```
 
-Wajib: `--ticker`, `--rekomendasi` (beli / tahan / jual / pantau).
-Opsional: `--teknikal --fundamental --entry --stop --target --jenis --mata-uang --tanggal`.
+Wajib: `--ticker`, `--rekomendasi` (beli / tahan / jual / pantau), dan
+`--pembatal` untuk rekomendasi beli/jual.
+Opsional: `--teknikal --fundamental --entry --stop --target --horizon --rujukan
+--jenis --mata-uang --tanggal`.
+
+Script menolak dua hal, dan menolaknya benar-benar, bukan memperingatkan:
+
+- **Hipotesis beli/jual tanpa `--pembatal`.** Tanpa pembatal, tiga bulan lagi
+  tidak ada yang bisa membedakan "thesisnya rusak" dari "harganya cuma
+  bergerak", dan saran seperti itu tetap ikut dihitung di win rate seolah-olah
+  setara dengan yang bisa dinilai.
+- **Rasio imbalan terhadap risiko di bawah 1,5.** Batasnya ada di aturan riset,
+  dan aturan yang tidak pernah menolak apa pun bukan aturan.
 
 Perlu dua hal di `.env.local`:
 
@@ -150,14 +163,19 @@ bukan sekadar menurutinya buta-buta.
 
 ## Meminta riset
 
-Ada dua jalur, dan keduanya memakai prompt yang sama persis (`src/lib/riset.ts`)
-supaya mutunya tidak bercabang.
+Riset selalu dimulai dari terminal, dalam sesi interaktif.
 
-**Lewat terminal, interaktif.** Halaman Saran menampilkan satu perintah siap
-tempel yang sudah berisi keadaan portofoliomu saat itu. Salin, tempel ke
-terminal, dan Claude Code akan meninjau posisimu lalu menunjukkan rencananya
-sebelum menyimpan apa pun. Ini jalur yang disarankan kalau kamu memang sedang di
-depan laptop: kamu melihat risetnya berjalan dan bisa membantahnya.
+**Lewat terminal.** Halaman Saran menampilkan satu perintah siap tempel yang
+sudah berisi keadaan portofoliomu saat itu. Salin, tempel ke terminal, dan
+Claude Code akan meninjau posisimu lalu menunjukkan rencananya sebelum
+menyimpan apa pun.
+
+Dulu ada jalur kedua: tombol "Minta riset" di app yang menitipkan permintaan ke
+Firestore, lalu watcher di laptop mengerjakannya di latar. Itu sudah dibuang.
+Alasannya bukan karena tidak jalan, tapi karena yang paling berharga dari riset
+ini justru kesempatan membantah hasilnya sebelum apa pun tersimpan, dan itu
+hanya ada di sesi interaktif. Watcher yang berjalan diam-diam menghasilkan
+saran yang tidak pernah dilawan siapa pun.
 
 **Tempel dari AI lain.** Halaman Saran punya tombol "Tempel dari AI lain":
 tempel mentahan dari ChatGPT, Gemini, atau siapa pun apa adanya. Nakhoda
@@ -172,22 +190,14 @@ membuat AI mana pun membalas dalam bentuk tabel yang terurai bersih.
 Karena tiap saran menyimpan sumbernya, halaman Jurnal bisa membandingkan siapa
 yang lebih sering benar dari waktu ke waktu.
 
-**Lewat tombol di app.** Halaman Tinjauan punya tombol "Minta riset" yang
-menitipkan permintaan ke Firestore. Watcher di laptop mengambilnya:
-
-```bash
-npm run pantau
-```
-
-Berguna kalau kamu ingin memintanya dari HP. Konsekuensinya, permintaan hanya
-dikerjakan selama watcher hidup, dan app menampilkan itu apa adanya alih-alih
-memutar animasi memuat yang tidak pernah selesai.
-
 Satu riset memakan beberapa menit dan menjalankan proses Claude Code penuh.
-Di laptop yang memorinya sudah sesak, prosesnya bisa dimatikan sistem di
-tengah jalan; kalau itu terjadi, statusnya jadi `gagal` dengan pesan yang
-menyebutkannya, bukan menggantung selamanya. Tutup dulu aplikasi lain yang
-berat sebelum menjalankannya.
+Tutup dulu aplikasi lain yang berat sebelum menjalankannya.
+
+Tiap saran menyimpan tiga hal yang membuatnya bisa dinilai belakangan, bukan
+cuma dibaca sekali: **pembatal thesis** (peristiwa atau level yang membuatnya
+salah), **horizon** dalam hari, dan **rujukan** berupa URL sumber angkanya.
+Halaman Saran menampilkan ketiganya, dan menandai kuning kalau R:R-nya di bawah
+1,5.
 
 Keduanya butuh `GOOGLE_APPLICATION_CREDENTIALS` terisi, karena yang menyimpan
 hasilnya adalah Admin SDK.
@@ -266,7 +276,6 @@ pernah bisa melukai lebih dalam dari jatah risikonya.
 | `npm run verify` | lint + test + build |
 | `npm run kunci` | Simpan kunci API ke `.env.local` tanpa lewat riwayat shell |
 | `npm run saran` | Tulis satu saran ke Firestore lewat Admin SDK |
-| `npm run pantau` | Watcher riset: mengambil permintaan dari app dan mengerjakannya |
 | `npm run deploy-rules` | Terbitkan `firestore.rules` |
 | `npx tsx scripts/buat-ikon.ts` | Bangun ulang ikon PNG dari `public/ikon.svg` |
 
@@ -333,7 +342,7 @@ src/
     hitung/       Logika murni: posisi, kinerja, risiko, tinjauan, tonggak
     data/         Penyedia data, adaptor lokal dan Firestore, ekspor, data contoh
     __tests__/    Tes untuk seluruh isi hitung/
-scripts/          tambah-saran, pantau-riset, deploy-rules, buat-ikon
+scripts/          tambah-saran, deploy-rules, buat-ikon, validasi-palet
 firestore.rules   Aturan keamanan
 ```
 

@@ -2,16 +2,15 @@ import type { KonteksRiset } from "@/types";
 
 /* Prompt riset.
  *
- * Satu sumber untuk dua jalur pemakaian yang berbeda:
+ * Riset selalu dimulai dari terminal, dalam sesi interaktif. Alur permintaan
+ * lewat app pernah ada, lengkap dengan watcher yang memprosesnya di latar, dan
+ * sengaja dibuang: yang paling berharga dari riset ini justru kesempatan
+ * membantah hasilnya sebelum apa pun tersimpan, dan itu hanya ada di sesi
+ * interaktif. Watcher yang berjalan diam-diam menghasilkan saran yang tidak
+ * pernah dilawan siapa pun.
  *
- *   1. Watcher di laptop (scripts/pantau-riset.ts) yang menjalankan `claude -p`
- *      dan menyimpan hasilnya sendiri.
- *   2. Perintah siap tempel di halaman Saran, untuk dijalankan langsung di
- *      terminal dalam sesi interaktif.
- *
- * Sengaja tidak digandakan. Prompt yang bercabang akan pelan-pelan berbeda, dan
- * dua jalur yang menghasilkan mutu analisis berbeda dari app yang sama adalah
- * hal yang sangat sulit disadari.
+ * Yang tersisa di app cuma satu: perintah siap tempel di halaman Saran, yang
+ * membekukan keadaan portofolio ke dalam perintahnya.
  */
 
 /** Batas jumlah hipotesis per permintaan. Alat yang tiap hari menemukan sepuluh
@@ -38,13 +37,22 @@ Aturan yang tidak boleh dilanggar:
    imbalan terhadap risiko harus minimal 1,5. Kalau kamu tidak bisa menetapkan
    stop yang masuk akal, jangan ajukan hipotesis itu.
 4. Sebutkan apa yang akan MEMBATALKAN thesis, bukan cuma yang mendukungnya.
-   Tulis itu di akhir technicalNotes atau fundamentalNotes.
+   Ini masuk ke field "pembatalThesis" sendiri, bukan diselipkan di ekor
+   catatan. Harus berupa peristiwa atau level yang bisa diperiksa, misalnya
+   "tutup mingguan di bawah 210", bukan "kalau fundamentalnya memburuk".
 5. Jangan menjanjikan hasil, jangan menyebut probabilitas yang tidak kamu
    punya dasarnya, dan jangan pakai kata seperti "pasti" atau "dijamin".
 6. Pakai pencarian web untuk memeriksa harga, berita, dan angka terbaru.
    Jangan mengandalkan ingatan untuk data yang bisa basi.
 7. Utamakan meninjau posisi yang SUDAH dipegang. Menutup posisi yang thesisnya
    sudah rusak sama berharganya dengan membuka posisi baru.
+8. Sertakan "horizonHari", jendela waktu hipotesisnya. Tanpa itu "berhasil"
+   tidak terdefinisi: target yang baru kena empat bulan kemudian itu gagal.
+9. Sertakan "rujukan", URL sumber angka yang kamu pakai. Aturan 6 mewajibkan
+   data dari web, dan tanpa jejaknya saran ini tidak bisa diaudit belakangan.
+10. Periksa kalender peristiwa di dalam horizon: laporan keuangan, rapat bank
+   sentral, rilis inflasi. Stop yang ketat tepat sebelum peristiwa biner bukan
+   pelindung, cuma tiket lotre. Kalau begitu keadaannya, katakan.
 
 Target return bulanan pemiliknya adalah tujuan pribadi, bukan kuota yang harus
 dikejar. Kalau bulan ini sudah di atas target, katakan bahwa tidak ada yang
@@ -64,6 +72,9 @@ Bentuknya array (boleh kosong):
     "suggestedEntry": 228.45,
     "suggestedStop": 210,
     "suggestedTarget": 265,
+    "pembatalThesis": "tutup mingguan di bawah 210, atau guidance dipangkas",
+    "horizonHari": 21,
+    "rujukan": ["https://...", "https://..."],
     "mataUang": "USD" | "IDR"
   }
 ]
@@ -118,10 +129,9 @@ export function susunPrompt(k: KonteksRiset): string {
 
 /** Perintah satu tempel untuk dijalankan di terminal.
  *
- *  Bedanya dengan jalur watcher: di sini Claude Code diminta MENYIMPAN sendiri
- *  lewat `npm run saran`, bukan mengembalikan JSON. Sesi interaktif juga berarti
- *  kamu bisa membantah hasilnya sebelum apa pun tersimpan, dan itu justru nilai
- *  utamanya dibanding watcher yang berjalan diam-diam. */
+ *  Claude Code diminta MENYIMPAN sendiri lewat `npm run saran`, bukan
+ *  mengembalikan JSON untuk ditempel balik. Satu langkah lebih sedikit, dan
+ *  yang menyimpan adalah pihak yang tahu persis angka apa yang dia temukan. */
 export function perintahTerminal(k: KonteksRiset, jalurRepo: string): string {
   const inti = [
     susunPrompt(k),
@@ -131,7 +141,13 @@ export function perintahTerminal(k: KonteksRiset, jalurRepo: string): string {
     "",
     "  npm run saran -- --ticker NVDA --jenis saham --rekomendasi beli \\",
     '    --teknikal "..." --fundamental "..." \\',
-    "    --entry 228,45 --stop 210 --target 265 --mata-uang USD",
+    "    --entry 228,45 --stop 210 --target 265 --mata-uang USD \\",
+    '    --pembatal "tutup mingguan di bawah 210" --horizon 21 \\',
+    '    --rujukan "https://sumber1,https://sumber2"',
+    "",
+    "Script itu menolak sendiri hipotesis beli/jual tanpa --pembatal, dan menolak",
+    "R:R di bawah 1,5. Kalau ditolak, perbaiki angkanya atau batalkan hipotesisnya,",
+    "jangan dipaksa lewat.",
     "",
     "Kalau tidak ada yang layak, jangan jalankan apa pun. Cukup katakan begitu,",
     "dan jelaskan singkat kenapa. Tunjukkan dulu rencanamu ke saya sebelum",

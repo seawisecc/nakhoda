@@ -12,7 +12,6 @@
     "saran": "tsx scripts/tambah-saran.ts",
     "deploy-rules": "tsx scripts/deploy-rules.ts",
     "verify": "npm run lint && npm test && npm run build",
-    "pantau": "tsx scripts/pantau-riset.ts",
     "kunci": "tsx scripts/set-kunci.ts",
     "palet": "tsx scripts/validasi-palet.ts"
   },

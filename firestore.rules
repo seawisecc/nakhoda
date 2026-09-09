@@ -64,12 +64,6 @@ service cloud.firestore {
 
     // Permintaan riset. Ditulis app, dibaca dan diperbarui watcher di laptop
     // lewat Admin SDK (yang melewati aturan ini sepenuhnya).
-    match /researchRequests/{id} {
-      allow read, delete: if miliknya();
-      allow create: if akanJadiMiliknya();
-      allow update: if pemilikTetap();
-    }
-
     match /snapshots/{id} {
       allow read, delete: if miliknya();
       allow create: if akanJadiMiliknya();

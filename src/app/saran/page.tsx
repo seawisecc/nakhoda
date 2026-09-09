@@ -17,6 +17,16 @@ import { cn } from "@/lib/cn";
 
 type Saring = "menunggu" | "diambil" | "diabaikan" | "semua";
 
+/** Nama host saja, supaya baris sumber tetap bisa dipindai. URL penuh di
+ *  kartu sempit akan membungkus jadi tiga baris dan menenggelamkan isinya. */
+function tuanRumah(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 const NADA_REKOMENDASI = {
   beli: "naik", jual: "turun", tahan: "netral", pantau: "info",
 } as const;
@@ -117,10 +127,34 @@ export default function HalamanSaran() {
                         ) : null}
                         {rr !== null ? (
                           <span className="text-ink-faint">
-                            R:R <span className="angka text-ink-soft">1 : {rr.toFixed(2).replace(".", ",")}</span>
+                            R:R{" "}
+                            <span
+                              className={cn(
+                                "angka",
+                                // Aturan riset mematok minimal 1,5. Aturan yang
+                                // tidak pernah menolak apa pun bukan aturan, jadi
+                                // yang di bawah batas ditandai di layar juga,
+                                // bukan cuma ditolak di script.
+                                rr < 1.5 ? "text-peringatan" : "text-ink-soft",
+                              )}
+                            >
+                              1 : {rr.toFixed(2).replace(".", ",")}
+                            </span>
+                          </span>
+                        ) : null}
+                        {s.horizonHari ? (
+                          <span className="text-ink-faint">
+                            Horizon <span className="angka text-ink-soft">{s.horizonHari} hari</span>
                           </span>
                         ) : null}
                       </div>
+                    ) : null}
+
+                    {rr !== null && rr < 1.5 ? (
+                      <p className="mt-2 text-[12px] leading-relaxed text-peringatan">
+                        Imbalannya kurang dari 1,5 kali risiko. Di bawah batas yang kamu tetapkan
+                        sendiri.
+                      </p>
                     ) : null}
 
                     <div className="mt-3 flex-1 space-y-2.5 border-t border-bordr pt-3">
@@ -136,7 +170,34 @@ export default function HalamanSaran() {
                           <p className="mt-0.5 text-[13px] leading-relaxed text-ink-soft">{s.catatanFundamental}</p>
                         </div>
                       ) : null}
+                      {/* Pembatal diberi pita di tepi kiri, bukan latar berwarna.
+                          Ini bukan peringatan bahwa ada yang salah, ini bagian
+                          yang paling harus dibaca dari seluruh kartu: satu-satunya
+                          isi yang membuat saran ini bisa dinilai belakangan. */}
+                      {s.pembatalThesis ? (
+                        <div className="border-l-2 border-bordr-strong pl-3">
+                          <p className="label-mikro">Yang membatalkan</p>
+                          <p className="mt-0.5 text-[13px] leading-relaxed text-ink-soft">{s.pembatalThesis}</p>
+                        </div>
+                      ) : null}
                     </div>
+
+                    {s.rujukan?.length ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-bordr pt-3">
+                        <span className="label-mikro">Sumber</span>
+                        {s.rujukan.map((u, i) => (
+                          <a
+                            key={u}
+                            href={u}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-[12px] text-aksen hover:underline"
+                          >
+                            {tuanRumah(u) || `sumber ${i + 1}`}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
 
                     {jurnalTerkait ? (
                       <p className="mt-3 text-[12px] text-ink-faint">

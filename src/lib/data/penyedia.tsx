@@ -5,7 +5,7 @@ import {
 } from "react";
 import type {
   ArusModal, HargaCache, JurnalEntri, KursCache, ModeData, Pengaturan,
-  PermintaanRiset, Saran, Snapshot, Transaksi,
+  Saran, Snapshot, Transaksi,
 } from "@/types";
 import {
   KOLEKSI, KOLEKSI_DOKUMEN, type KoleksiDokumen, type NamaKoleksi,
@@ -46,7 +46,6 @@ interface IsiData {
   snapshot: Snapshot[];
   hargaCache: HargaCache[];
   kursCache: KursCache[];
-  permintaanRiset: PermintaanRiset[];
   pengaturan: Pengaturan;
 
   masuk: (email: string, sandi: string) => Promise<void>;
@@ -70,7 +69,7 @@ type PetaDokumen = Record<KoleksiDokumen, { id: string }[]>;
 
 const KOSONG_FIRESTORE: PetaDokumen = {
   transaksi: [], arusModal: [], jurnal: [], saran: [],
-  snapshot: [], hargaCache: [], kursCache: [], permintaanRiset: [],
+  snapshot: [], hargaCache: [], kursCache: [],
 };
 
 export function PenyediaData({ children }: { children: React.ReactNode }) {
@@ -96,7 +95,6 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
   const snapshotLokal = useKoleksiLokal<Snapshot>("snapshot", lokal);
   const hargaLokal = useKoleksiLokal<HargaCache>("hargaCache", lokal);
   const kursLokal = useKoleksiLokal<KursCache>("kursCache", lokal);
-  const risetLokal = useKoleksiLokal<PermintaanRiset>("permintaanRiset", lokal);
   const pengaturanLokal = useKoleksiLokal<Pengaturan>("pengaturan", lokal);
 
   /* ── Autentikasi ────────────────────────────────────────────────────── */
@@ -288,7 +286,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
       ? {
           transaksi: transaksiLokal, arusModal: arusLokal, jurnal: jurnalLokal,
           saran: saranLokal, snapshot: snapshotLokal, hargaCache: hargaLokal,
-          kursCache: kursLokal, permintaanRiset: risetLokal,
+          kursCache: kursLokal,
         }
       : pengguna
         ? dariFirestore
@@ -309,14 +307,13 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
       snapshot: dok.snapshot as Snapshot[],
       hargaCache: dok.hargaCache as HargaCache[],
       kursCache: dok.kursCache as KursCache[],
-      permintaanRiset: dok.permintaanRiset as PermintaanRiset[],
       pengaturan,
       masuk, keluar, simpan, hapus, simpanPengaturan, bersihkanSemua,
     };
   }, [
     mode, lokal, siapAuth, siapFirestore, pengguna, galatAuth, dariFirestore,
     transaksiLokal, arusLokal, jurnalLokal, saranLokal, snapshotLokal,
-    hargaLokal, kursLokal, risetLokal, pengaturan, masuk, keluar, simpan, hapus,
+    hargaLokal, kursLokal, pengaturan, masuk, keluar, simpan, hapus,
     simpanPengaturan, bersihkanSemua,
   ]);
 

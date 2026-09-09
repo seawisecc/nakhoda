@@ -99,6 +99,20 @@ export interface Saran {
   entrySaran?: number;
   stopSaran?: number;
   targetSaran?: number;
+  /** Apa yang membuat thesis ini SALAH, bukan apa yang mendukungnya.
+   *
+   *  Field sendiri, bukan diselipkan di ekor catatan, karena ini satu-satunya
+   *  bagian yang menentukan saran ini bisa dinilai atau tidak. Kalau pembatalnya
+   *  cuma kalimat di tengah paragraf, tiga bulan lagi tidak ada yang bisa
+   *  menjawab "thesisnya rusak atau harganya cuma bergerak". */
+  pembatalThesis?: string;
+  /** Jendela waktu hipotesisnya, dalam hari. Tanpa ini "berhasil" tidak
+   *  terdefinisi: target yang baru kena di bulan keempat itu gagal, bukan
+   *  berhasil, dan tanpa jendela keduanya terlihat sama. */
+  horizonHari?: number;
+  /** URL sumber data yang dipakai. Aturan riset mewajibkan angka dari web,
+   *  dan tanpa jejaknya saran lama tidak bisa diaudit sama sekali. */
+  rujukan?: string[];
   mataUang: MataUang;
   status: StatusSaran;
   idJurnal?: string;
@@ -189,14 +203,13 @@ export interface Snapshot {
   dibuatPada: number;
 }
 
-export type StatusRiset = "menunggu" | "diproses" | "selesai" | "gagal";
 
-/** Ringkasan keadaan portofolio yang ikut dikirim bersama permintaan riset.
+/** Ringkasan keadaan portofolio yang ditempelkan ke prompt riset.
  *
- *  Disalin ke dalam dokumen permintaan, bukan dibaca ulang oleh watcher, karena
- *  yang harus dianalisis adalah keadaan saat tombol ditekan. Kalau harga
- *  bergerak antara permintaan dibuat dan diproses, hasil risetnya tetap
- *  menjawab pertanyaan yang benar-benar diajukan. */
+ *  Riset dijalankan sendiri dari terminal, jadi bentuk ini dipakai untuk
+ *  menyusun perintah siap tempel di halaman Saran. Keadaan portofolio ikut
+ *  dibekukan ke dalam perintah supaya yang dianalisis adalah keadaan saat
+ *  perintahnya disalin, bukan saat kebetulan dijalankan. */
 export interface KonteksRiset {
   mataUangDasar: MataUang;
   totalNilai: number;
@@ -222,21 +235,3 @@ export interface KonteksRiset {
   pengawasan: string[];
 }
 
-/** Permintaan riset yang ditulis app dan dikerjakan watcher di laptop.
- *
- *  Halaman web tidak bisa memerintah Claude Code secara langsung, jadi arahnya
- *  dibalik: app menaruh permintaan di Firestore, dan script di laptop yang
- *  mengambilnya. Konsekuensinya, permintaan cuma dikerjakan saat watcher-nya
- *  hidup, dan status di bawah yang memberitahu itu ke pengguna. */
-export interface PermintaanRiset {
-  id: string;
-  uid: string;
-  tanggal: string;
-  status: StatusRiset;
-  konteks: KonteksRiset;
-  dibuatPada: number;
-  diprosesPada?: number;
-  selesaiPada?: number;
-  jumlahSaran?: number;
-  pesanGagal?: string;
-}

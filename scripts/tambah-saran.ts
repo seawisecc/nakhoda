@@ -13,10 +13,14 @@
  *   npm run saran -- --ticker NVDA --rekomendasi beli \
  *     --teknikal "Breakout dari konsolidasi tiga minggu" \
  *     --fundamental "Guidance dinaikkan dua kuartal beruntun" \
- *     --entry 228,45 --stop 210 --target 250
+ *     --entry 228,45 --stop 210 --target 250 \
+ *     --pembatal "Tutup mingguan di bawah 210 atau guidance dipangkas" \
+ *     --horizon 21 --rujukan "https://...,https://..."
  *
  * Wajib: --ticker, --rekomendasi
+ *        --pembatal untuk rekomendasi beli/jual, lihat alasannya di bawah
  * Opsional: --teknikal --fundamental --entry --stop --target
+ *           --horizon <hari> --rujukan <url dipisah koma>
  *           --jenis saham|kripto (bawaan saham)
  *           --mata-uang USD|IDR (bawaan USD)
  *           --tanggal YYYY-MM-DD (bawaan hari ini)
@@ -111,6 +115,42 @@ async function jalan() {
   const jenisAset = arg.jenis === "kripto" ? "kripto" : "saham";
   const mataUang = arg["mata-uang"] === "IDR" ? "IDR" : "USD";
 
+  const entry = angka(arg.entry);
+  const stop = angka(arg.stop);
+  const target = angka(arg.target);
+  const pembatal = (arg.pembatal ?? "").trim();
+
+  // Hipotesis beli/jual tanpa pembatal tidak bisa dinilai belakangan: tidak ada
+  // yang membedakan "thesis rusak" dari "harga cuma bergerak". Ditolak di sini,
+  // bukan diperingatkan, karena saran tanpa pembatal yang terlanjur tersimpan
+  // akan tetap ikut dihitung di win rate seolah-olah setara dengan yang punya.
+  if ((rekomendasi === "beli" || rekomendasi === "jual") && !pembatal) {
+    berhenti(
+      "--pembatal wajib untuk rekomendasi beli/jual.\n" +
+        '  Contoh: --pembatal "Tutup mingguan di bawah 210, atau ETF berbalik net outflow dua pekan"',
+    );
+  }
+
+  // Rasio imbalan terhadap risiko diperiksa di sini, bukan cuma dipercayakan ke
+  // penilaian model yang menulis perintahnya. Batas 1,5 datang dari aturan
+  // riset, dan aturan yang tidak pernah menolak apa pun bukan aturan.
+  if (entry !== undefined && stop !== undefined && target !== undefined) {
+    const risiko = Math.abs(entry - stop);
+    const imbalan = Math.abs(target - entry);
+    const rr = risiko > 0 ? imbalan / risiko : 0;
+    if (!(rr >= 1.5)) {
+      berhenti(
+        `Rasio imbalan terhadap risiko cuma ${rr.toFixed(2)}, di bawah batas 1,5.\n` +
+          "  Perbaiki entry, stop, atau target, atau jangan ajukan hipotesis ini.",
+      );
+    }
+  }
+
+  const rujukan = (arg.rujukan ?? "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+
   const dokumen = {
     uid,
     ticker,
@@ -120,9 +160,12 @@ async function jalan() {
     rekomendasi,
     catatanTeknikal: arg.teknikal ?? "",
     catatanFundamental: arg.fundamental ?? "",
-    entrySaran: angka(arg.entry),
-    stopSaran: angka(arg.stop),
-    targetSaran: angka(arg.target),
+    entrySaran: entry,
+    stopSaran: stop,
+    targetSaran: target,
+    pembatalThesis: pembatal || undefined,
+    horizonHari: angka(arg.horizon),
+    rujukan: rujukan.length ? rujukan : undefined,
     mataUang,
     status: "menunggu" as const,
     dibuatPada: Date.now(),
@@ -139,6 +182,10 @@ async function jalan() {
   const ref = await db.collection("suggestions").add(bersih);
 
   console.log(`\n  Saran tersimpan: ${ticker} (${rekomendasi})`);
+  if (entry !== undefined && stop !== undefined && target !== undefined) {
+    const rr = Math.abs(target - entry) / Math.abs(entry - stop);
+    console.log(`  Entry ${entry} · stop ${stop} · target ${target} · R:R ${rr.toFixed(2)}`);
+  }
   console.log(`  Dokumen: suggestions/${ref.id}`);
   console.log("  Entri akan muncul di app secara realtime, tanpa perlu refresh.\n");
 }

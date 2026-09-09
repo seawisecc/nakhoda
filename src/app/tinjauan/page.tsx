@@ -8,7 +8,6 @@ import { susunTinjauan, type NadaTemuan } from "@/lib/hitung/tinjauan";
 import { bacaAngka, formatPersen, formatUang } from "@/lib/format";
 import { formatBulan, hariIni, kunciBulan, selangWaktu } from "@/lib/tanggal";
 import { Bidang, IsianAngka, Kartu, JudulKartu, Kosong, Lencana, Tombol } from "@/components/ui/dasar";
-import { TombolRiset } from "@/components/tombol-riset";
 import { cn } from "@/lib/cn";
 
 const GAYA: Record<NadaTemuan, { kotak: string; ikon: typeof AlertTriangle; warna: string; label: string }> = {
@@ -172,8 +171,6 @@ export default function HalamanTinjauan() {
           />
         )}
       </Kartu>
-
-      <TombolRiset jatahRisiko={ringkasan.totalNilai * ((bacaAngka(risiko) || 0) / 100)} />
 
     </div>
   );
