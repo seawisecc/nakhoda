@@ -17,3 +17,9 @@ yarn-debug.log*
 yarn-error.log*
 .vercel
 *.tsbuildinfo
+
+# Ditambahkan oleh `vercel link`. Diperlebar dengan pengecualian:
+# tanpa itu .env.example ikut terabaikan di kloning baru, padahal berkas itu
+# yang memberi tahu variabel apa saja yang harus diisi.
+.env*
+!.env.example
