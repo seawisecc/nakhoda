@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/* Batang harian bertahun-tahun untuk satu ticker, dipakai chart Astro.
+/* Batang harian bertahun-tahun untuk satu ticker, dipakai chart Astro dan Sinyal.
  *
  * Sumbernya bukan Finnhub dan bukan CoinGecko seperti route lain. Candle
  * historis Finnhub hanya untuk paket berbayar, dan CoinGecko gratis memotong
@@ -21,6 +21,9 @@ export interface BatangRiwayat {
   tinggi: number;
   rendah: number;
   tutup: number;
+  /** Tidak ada untuk sesi yang volumenya tidak dilaporkan. Tidak diisi nol:
+   *  nol akan terbaca sebagai sesi sepi, bukan sebagai data yang hilang. */
+  volume?: number;
 }
 
 export interface HasilRiwayat {
@@ -53,7 +56,7 @@ async function riwayatSaham(ticker: string): Promise<HasilRiwayat | Gagal> {
         result?: {
           meta?: { currency?: string; gmtoffset?: number };
           timestamp?: number[];
-          indicators?: { quote?: { open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[] }[] };
+          indicators?: { quote?: { open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[]; volume?: (number | null)[] }[] };
         }[];
       };
     };
@@ -74,9 +77,11 @@ async function riwayatSaham(ticker: string): Promise<HasilRiwayat | Gagal> {
       const [o, h, l, c] = [q.open?.[i], q.high?.[i], q.low?.[i], q.close?.[i]];
       // Yahoo menyelipkan null untuk sesi yang datanya bolong.
       if (!o || !h || !l || !c) return;
+      const v = q.volume?.[i];
       batang.push({
         tanggal: new Date(ts * 1000 + geser).toISOString().slice(0, 10),
         buka: o, tinggi: h, rendah: l, tutup: c,
+        ...(v ? { volume: v } : {}),
       });
     });
     if (!batang.length) return dariStatus(404, ticker);
@@ -102,11 +107,12 @@ async function riwayatKripto(ticker: string): Promise<HasilRiwayat | Gagal> {
         // Binance membalas 400 untuk simbol yang tidak ada.
         return dariStatus(r.status === 400 ? 404 : r.status, ticker);
       }
-      const j = (await r.json()) as [number, string, string, string, string][];
+      const j = (await r.json()) as [number, string, string, string, string, string][];
       for (const k of j) {
         batang.push({
           tanggal: new Date(k[0]).toISOString().slice(0, 10),
           buka: Number(k[1]), tinggi: Number(k[2]), rendah: Number(k[3]), tutup: Number(k[4]),
+          ...(Number(k[5]) > 0 ? { volume: Number(k[5]) } : {}),
         });
       }
       if (j.length < 1000) break;

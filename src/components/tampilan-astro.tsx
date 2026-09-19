@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import type { JenisAset } from "@/types";
 import {
@@ -9,9 +9,12 @@ import {
 } from "@/lib/hitung/astro";
 import { formatPersen, tandaArah } from "@/lib/format";
 import { formatTanggal } from "@/lib/tanggal";
-import { Kartu, Kosong, Lencana, Pilihan, warnaArah } from "@/components/ui/dasar";
+import { Kartu, Kosong, Pilihan, warnaArah } from "@/components/ui/dasar";
 import { Tabel, Td, Th, Tr } from "@/components/ui/tabel";
-import { ChartAstro, type BatangChart, type PenandaChart } from "@/components/chart-astro";
+import { ChartPenanda, type PenandaChart } from "@/components/chart-penanda";
+import { LencanaTingkat } from "@/components/tingkat";
+import { kalimatKesimpulan, nilaiUji } from "@/lib/hitung/uji-kejadian";
+import { useRiwayat } from "@/lib/riwayat";
 import { cn } from "@/lib/cn";
 
 const HARI = 86_400_000;
@@ -44,12 +47,7 @@ export function TampilanAstro({
   jenisAset: JenisAset;
   tema: string;
 }) {
-  /* Di-remount induknya setiap ticker berubah, jadi keadaan awal cukup
-     ditulis di useState, sama seperti PanelLevel. */
-  const [batang, setBatang] = useState<BatangChart[] | null>(null);
-  const [sumber, setSumber] = useState("");
-  const [memuat, setMemuat] = useState(true);
-  const [galat, setGalat] = useState<string | null>(null);
+  const { batang, sumber, memuat, galat } = useRiwayat(ticker, jenisAset);
 
   const [a, setA] = useState<Planet>("mars");
   const [b, setB] = useState<Planet>("jupiter");
@@ -59,29 +57,6 @@ export function TampilanAstro({
   // Dibekukan saat pasang. "Sekarang" yang bergerak di setiap render akan
   // menghitung ulang seluruh aspek tanpa ada yang berubah.
   const [sekarang] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!ticker) return;
-    let batal = false;
-    fetch(`/api/riwayat?ticker=${encodeURIComponent(ticker)}&jenis=${jenisAset}`)
-      .then(async (r) => {
-        const j = await r.json();
-        if (batal) return;
-        if (!r.ok) {
-          setGalat(j.galat ?? "Riwayat harga tidak tersedia.");
-          return;
-        }
-        setBatang(j.batang);
-        setSumber(j.sumber);
-      })
-      .catch(() => {
-        if (!batal) setGalat("Gagal mengambil riwayat harga.");
-      })
-      .finally(() => {
-        if (!batal) setMemuat(false);
-      });
-    return () => { batal = true; };
-  }, [ticker, jenisAset]);
 
   const awal = batang?.length ? Date.parse(`${batang[0].tanggal}T00:00:00Z`) : null;
 
@@ -107,19 +82,32 @@ export function TampilanAstro({
   }, [batang, kejadian, aktif]);
 
   const hasilUji = useMemo(
-    () => DAFTAR_ASPEK.map((x) => ({
-      aspek: x,
-      hasil: batang
+    () => DAFTAR_ASPEK.map((x) => {
+      const hasil = batang
         ? ujiAspek(batang, kejadian.filter((k) => k.aspek === x).map((k) => k.waktu), horizon)
-        : null,
-    })),
-    [batang, kejadian, horizon],
+        : null;
+      // Aspek tidak mengklaim arah, jadi dinilai dua sisi. Lima aspek diuji
+      // sekaligus di layar ini, dan itu yang jadi pembagi koreksinya.
+      const nilai = hasil ? nilaiUji(hasil, DAFTAR_ASPEK.length) : null;
+      const nama = `${PLANET[a].nama} ${ASPEK[x].nama.toLowerCase()} ${PLANET[b].nama}`;
+      return {
+        aspek: x, hasil, nilai,
+        kalimat: hasil && nilai ? kalimatKesimpulan(nama, ticker, hasil, nilai) : null,
+      };
+    }),
+    [batang, kejadian, horizon, a, b, ticker],
   );
 
   const akanDatang = kejadian.filter((k) => k.waktu > sekarang).slice(0, 8);
-  const adaBermakna = hasilUji.some(
-    (u) => u.hasil && !u.hasil.terlaluSedikit && (u.hasil.peluangKebetulan ?? 1) < 0.05,
-  );
+  const berarti = hasilUji.filter((u) => u.nilai?.tingkat === "catatan");
+  const lemah = hasilUji.filter((u) => u.nilai?.tingkat === "lemah");
+  const ringkasan = !batang
+    ? null
+    : berarti.length
+      ? berarti.map((u) => u.kalimat).join(" ")
+      : `Abaikan pasangan ini untuk ${ticker}. Tidak ada aspek ${PLANET[a].nama} dan ${PLANET[b].nama} yang hasilnya beda dari hari biasa${
+        lemah.length ? `; ${lemah.map((u) => ASPEK[u.aspek].nama.toLowerCase()).join(" dan ")} cuma petunjuk lemah yang masih wajar muncul secara kebetulan` : ""
+      }.`;
 
   const ubahAspek = (x: JenisAspek) =>
     setAktif((s) => {
@@ -134,7 +122,7 @@ export function TampilanAstro({
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="kartu relative h-[min(70vh,760px)] min-h-[380px] p-2">
           {batang ? (
-            <ChartAstro batang={batang} penanda={penanda} tema={tema} />
+            <ChartPenanda batang={batang} penanda={penanda} tema={tema} />
           ) : (
             <div className="grid size-full place-items-center">
               {memuat ? (
@@ -222,6 +210,9 @@ export function TampilanAstro({
       </div>
 
       <Kartu>
+        {ringkasan ? (
+          <p className="mb-4 border-l-2 border-info pl-3 text-[13px] leading-relaxed text-ink">{ringkasan}</p>
+        ) : null}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="label-mikro text-[11px] text-ink-soft">
             Uji {PLANET[a].nama} · {PLANET[b].nama}
@@ -250,10 +241,11 @@ export function TampilanAstro({
               <Th kanan>Hari acak</Th>
               <Th kanan>Naik</Th>
               <Th kanan>Peluang kebetulan</Th>
+              <Th kanan>Kesimpulan</Th>
             </>
           }
         >
-          {hasilUji.map(({ aspek, hasil }) => {
+          {hasilUji.map(({ aspek, hasil, nilai, kalimat }) => {
             const buka = terbuka === aspek;
             return (
               <Fragment key={aspek}>
@@ -283,18 +275,18 @@ export function TampilanAstro({
                   <Td kanan>
                     {!hasil || !hasil.kejadian.length ? (
                       <span className="angka text-ink-faint">—</span>
-                    ) : hasil.terlaluSedikit ? (
-                      <Lencana nada="peringatan">terlalu sedikit</Lencana>
                     ) : (
                       <span className="angka">
-                        {formatPersen((hasil.peluangKebetulan ?? 1) * 100, 0, false)}
+                        {hasil.peluangKebetulan === null ? "—" : formatPersen(hasil.peluangKebetulan * 100, 0, false)}
                       </span>
                     )}
                   </Td>
+                  <Td kanan>{nilai ? <LencanaTingkat tingkat={nilai.tingkat} /> : "—"}</Td>
                 </Tr>
                 {buka && hasil ? (
                   <tr className="border-b border-bordr bg-surface-2">
-                    <td colSpan={6} className="px-3 py-2">
+                    <td colSpan={7} className="px-3 py-2">
+                      {kalimat ? <p className="mb-2 text-[12px] text-ink">{kalimat}</p> : null}
                       {hasil.kejadian.length ? (
                         <ul className="grid gap-x-6 gap-y-1 text-[12px] sm:grid-cols-2 lg:grid-cols-3">
                           {hasil.kejadian.map((k) => (
@@ -322,8 +314,7 @@ export function TampilanAstro({
 
         <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">
           Return dari tutup sebelum hari aspek sampai {horizon} sesi sesudahnya, dibanding {horizon} sesi dari
-          titik mana pun. Peluang kebetulan: seberapa sering sampel hari acak berukuran sama menyimpang sejauh itu.
-          {adaBermakna ? " Lima aspek diuji sekaligus, jadi satu yang tampak bermakna masih wajar terjadi secara kebetulan." : null}
+          hari mana pun. Klik baris untuk rinciannya.
         </p>
       </Kartu>
     </div>

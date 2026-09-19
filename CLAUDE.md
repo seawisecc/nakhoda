@@ -18,7 +18,7 @@ memintanya secara eksplisit.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 214 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 245 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
@@ -135,6 +135,12 @@ dengan alasannya masing-masing; yang di bawah ini ringkasannya.
   Keduanya ditolak keras di `scripts/tambah-saran.ts`, bukan sekadar
   diperingatkan. Tanpa pembatal, tiga bulan kemudian tidak ada yang bisa
   membedakan "thesisnya rusak" dari "harganya cuma bergerak".
+- **Setiap tanda di chart (aspek planet, pola lilin, indikator) wajib lewat
+  `uji-kejadian.ts`** dan dinilai dengan koreksi uji ganda. Tanda tanpa uji
+  cuma mengundang mata mengingat yang kebetulan pas. Tombol "Jadikan saran"
+  hanya muncul untuk tanda yang lolos koreksi, searah klaimnya, dan R:R
+  minimal 1,5. Jangan melonggarkannya supaya layar terlihat lebih berguna;
+  "tidak ada yang perlu dilakukan" adalah keluaran yang benar dan sering.
 - **Realisasi bulanan bukan pengganti Modified Dietz.** `realisasiPeriode()`
   cuma menghitung yang sudah dikunci lewat penjualan, diukur terhadap modal
   bersih supaya targetnya tidak ikut bergerak setiap kali harga pasar bergerak.
@@ -149,7 +155,8 @@ src/components/ui/  Kit dasar: kartu, tombol, isian, tabel, grafik, panel
 src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, trade, kinerja, risiko, tinjauan,
-                    level, biaya, tonggak, astro (aspek planet + ujinya)
+                    level, biaya, tonggak, astro (aspek planet), sinyal (pola
+                    lilin dan indikator), uji-kejadian (uji keduanya)
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
 scripts/            tambah-saran, tambah-alokasi, set-kunci, deploy-rules,
                     buat-ikon, validasi-palet

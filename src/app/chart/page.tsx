@@ -11,6 +11,7 @@ import { Isian, Kartu, Kosong, Pilihan, warnaArah } from "@/components/ui/dasar"
 import { ChartTradingView, simbolTradingView } from "@/components/tradingview";
 import { PanelLevel } from "@/components/panel-level";
 import { TampilanAstro } from "@/components/tampilan-astro";
+import { TampilanSinyal } from "@/components/tampilan-sinyal";
 import { cn } from "@/lib/cn";
 
 export default function HalamanChart() {
@@ -21,7 +22,7 @@ export default function HalamanChart() {
   const paramJenis = useParamKueri("jenis");
   const [pilihan, setPilihan] = useState<{ ticker: string; jenis: JenisAset } | null>(null);
   const [panelTerbuka, setPanelTerbuka] = useState(true);
-  const [mode, setMode] = useState<"tradingview" | "astro">("tradingview");
+  const [mode, setMode] = useState<"tradingview" | "sinyal" | "astro">("tradingview");
 
   const pintasan = useMemo(() => {
     const dariPosisi = posisiAktif.map((p) => ({ ticker: p.ticker, jenisAset: p.jenisAset }));
@@ -79,10 +80,10 @@ export default function HalamanChart() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {/* Dua chart, bukan satu: widget TradingView tidak bisa diberi
+          {/* Lebih dari satu chart: widget TradingView tidak bisa diberi
               penanda, dan chart sendiri tidak punya indikatornya. */}
           <div className="flex h-9 border border-bordr" role="group" aria-label="Jenis chart">
-            {(["tradingview", "astro"] as const).map((m) => (
+            {(["tradingview", "sinyal", "astro"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
@@ -92,7 +93,7 @@ export default function HalamanChart() {
                   mode === m ? "bg-aksen-lembut text-aksen" : "text-ink-faint hover:text-ink-soft",
                 )}
               >
-                {m === "tradingview" ? "Chart" : "Astro"}
+                {m === "tradingview" ? "Chart" : m === "sinyal" ? "Sinyal" : "Astro"}
               </button>
             ))}
           </div>
@@ -172,7 +173,15 @@ export default function HalamanChart() {
         </div>
       ) : null}
 
-      {simbol && mode === "astro" ? (
+      {simbol && mode === "sinyal" ? (
+        <TampilanSinyal
+          key={`${ticker}-${jenis}`}
+          ticker={ticker.trim().toUpperCase()}
+          jenisAset={jenis}
+          tema={aktif}
+          dipegang={!!posisi}
+        />
+      ) : simbol && mode === "astro" ? (
         <TampilanAstro key={`${ticker}-${jenis}`} ticker={ticker.trim().toUpperCase()} jenisAset={jenis} tema={aktif} />
       ) : simbol ? (
         <div

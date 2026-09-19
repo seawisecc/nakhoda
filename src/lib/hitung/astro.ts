@@ -1,4 +1,7 @@
 import { Body, Ecliptic, GeoVector, SunPosition } from "astronomy-engine";
+import { ujiDariIndeks, type BatangHarian, type HasilUji, type ReturnKejadian } from "./uji-kejadian";
+
+export type { BatangHarian } from "./uji-kejadian";
 
 /* Aspek planet dan uji apakah aspek itu berbarengan dengan gerak harga.
  *
@@ -162,41 +165,13 @@ export function cariSemuaAspek(
     .sort((x, y) => x.waktu - y.waktu);
 }
 
-/* ── Uji kejadian ───────────────────────────────────────────────────────── */
+/* ── Uji ──────────────────────────────────────────────────────────────── */
 
-export interface BatangHarian {
-  /** Tanggal sesi, "YYYY-MM-DD". */
-  tanggal: string;
-  tutup: number;
-}
-
-export interface ReturnKejadian {
+export interface ReturnAspek extends ReturnKejadian {
   waktuAspek: number;
-  /** Tanggal sesi yang tutupnya dipakai sebagai titik awal. */
-  tanggalMasuk: string;
-  tanggalKeluar: string;
-  /** Pecahan, 0,05 berarti 5%. */
-  hasil: number;
 }
 
-export interface HasilUjiAspek {
-  horizon: number;
-  kejadian: ReturnKejadian[];
-  /** Aspek yang jatuh sebelum data mulai atau yang jendelanya belum selesai. */
-  terlewat: number;
-  rataRata: number | null;
-  median: number | null;
-  persenNaik: number | null;
-  /** Return h hari dari setiap titik awal yang mungkin di data yang sama. */
-  dasar: { n: number; rataRata: number; persenNaik: number } | null;
-  /** Porsi sampel acak berukuran sama yang menyimpang dari dasar sejauh ini
-   *  atau lebih. Kecil berarti sulit dijelaskan sebagai kebetulan. */
-  peluangKebetulan: number | null;
-  /** Di bawah lima kejadian, angka apa pun di atas cuma anekdot. */
-  terlaluSedikit: boolean;
-}
-
-export const MIN_KEJADIAN = 5;
+export type HasilUjiAspek = HasilUji<ReturnAspek>;
 
 /** Tanggal UTC dari milidetik, "YYYY-MM-DD". Tanggal sesi di data harian
  *  juga berupa tanggal kalender tanpa jam, jadi keduanya dibandingkan
@@ -219,120 +194,34 @@ export function indeksBatangSejak(batang: BatangHarian[], tanggal: string): numb
   return kiri < batang.length ? kiri : -1;
 }
 
-/** Generator acak berbenih (mulberry32). Tanpa benih, "peluang kebetulan"
- *  akan berubah setiap render dan angka yang berubah sendiri tidak bisa
- *  dipercaya maupun diuji. */
-function acakBerbenih(benih: number) {
-  let s = benih >>> 0;
-  return () => {
-    s = (s + 0x6d2b79f5) >>> 0;
-    let t = s;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function median(x: number[]): number {
-  const s = [...x].sort((p, q) => p - q);
-  const m = s.length >> 1;
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-}
-
-/** Return h sesi bursa di sekitar setiap aspek, dibandingkan dengan return h
- *  sesi dari titik mana pun di data yang sama.
+/** Return h sesi di sekitar setiap aspek, lewat mesin uji bersama.
  *
  *  Titik awalnya tutup sesi TERAKHIR SEBELUM hari aspek, bukan tutup di hari
  *  aspek. Kalau hari aspek sendiri dipakai sebagai titik awal, gerak di hari
  *  itu, yang justru paling sering diklaim astro trading, terbuang dari
- *  pengukuran.
- *
- *  Pembanding sengaja bukan nol. Saham yang naik 20% setahun punya return
- *  lima hari rata-rata positif di tanggal apa pun; aspek baru berarti kalau
- *  return sesudahnya berbeda dari itu.
- *
- *  Harganya harga tutup yang sudah disesuaikan split. Return adalah rasio,
- *  jadi mata uangnya tidak berpengaruh, selama seluruh deret dalam satu mata
- *  uang, dan route riwayat selalu membalas dalam USD. */
+ *  pengukuran. Pola chart berbeda: dia baru diketahui setelah lilinnya
+ *  tutup, jadi titik awalnya lilin itu sendiri. */
 export function ujiAspek(
   batang: BatangHarian[], waktuAspek: number[], horizon: number,
   opsi: { sampel?: number; benih?: number } = {},
 ): HasilUjiAspek {
-  const h = Math.max(1, Math.floor(horizon));
-  const kejadian: ReturnKejadian[] = [];
-  let terlewat = 0;
-
-  for (const w of waktuAspek) {
+  const masuk = waktuAspek.map((w) => {
     const iAspek = indeksBatangSejak(batang, tanggalUtc(w));
     // -1 berarti aspeknya sesudah batang terakhir; titik awalnya batang
     // terakhir itu sendiri, tapi jendelanya jelas belum selesai.
-    const iMasuk = (iAspek === -1 ? batang.length : iAspek) - 1;
-    const iKeluar = iMasuk + h;
-    if (iMasuk < 0 || iKeluar >= batang.length || !(batang[iMasuk].tutup > 0)) {
-      terlewat += 1;
-      continue;
-    }
-    kejadian.push({
-      waktuAspek: w,
-      tanggalMasuk: batang[iMasuk].tanggal,
-      tanggalKeluar: batang[iKeluar].tanggal,
-      hasil: batang[iKeluar].tutup / batang[iMasuk].tutup - 1,
-    });
-  }
-
-  const semua: number[] = [];
-  for (let i = 0; i + h < batang.length; i += 1) {
-    if (batang[i].tutup > 0) semua.push(batang[i + h].tutup / batang[i].tutup - 1);
-  }
-  const dasar = semua.length
-    ? {
-      n: semua.length,
-      rataRata: semua.reduce((s, x) => s + x, 0) / semua.length,
-      persenNaik: (semua.filter((x) => x > 0).length / semua.length) * 100,
-    }
-    : null;
-
-  const n = kejadian.length;
-  if (!n) {
-    return {
-      horizon: h, kejadian, terlewat, rataRata: null, median: null, persenNaik: null,
-      dasar, peluangKebetulan: null, terlaluSedikit: true,
-    };
-  }
-
-  const hasil = kejadian.map((k) => k.hasil);
-  const rataRata = hasil.reduce((s, x) => s + x, 0) / n;
-
-  // Uji permutasi: ambil n titik acak dari data yang sama berulang kali, lalu
-  // hitung seberapa sering rata-ratanya menyimpang dari dasar sejauh rata-rata
-  // aspek. Dipilih ketimbang uji-t karena return harian berekor gemuk dan n
-  // di sini kecil, dua hal yang membuat uji-t terlalu percaya diri.
-  let peluangKebetulan: number | null = null;
-  if (dasar && semua.length > n) {
-    const sampel = opsi.sampel ?? 2000;
-    const acak = acakBerbenih(opsi.benih ?? 1);
-    // Dikurangi toleransi kecil supaya derau floating point (selisih 1e-17
-    // antara dua rasio yang secara matematis sama) tidak dihitung sebagai
-    // simpangan yang lebih kecil dari simpangan acak.
-    const simpang = Math.abs(rataRata - dasar.rataRata) - 1e-12;
-    let sama = 0;
-    for (let s = 0; s < sampel; s += 1) {
-      let jumlah = 0;
-      for (let k = 0; k < n; k += 1) jumlah += semua[Math.floor(acak() * semua.length)];
-      if (Math.abs(jumlah / n - dasar.rataRata) >= simpang) sama += 1;
-    }
-    peluangKebetulan = sama / sampel;
-  }
-
+    return (iAspek === -1 ? batang.length : iAspek) - 1;
+  });
+  const hasil = ujiDariIndeks(batang, masuk, horizon, opsi);
+  // ujiDariIndeks melewatkan kejadian yang jendelanya tidak lengkap, jadi
+  // waktu aspeknya dipasangkan ulang lewat tanggal masuk yang sama.
+  const perMasuk = new Map<string, number[]>();
+  masuk.forEach((i, k) => {
+    if (i < 0 || i >= batang.length) return;
+    const t = batang[i].tanggal;
+    perMasuk.set(t, [...(perMasuk.get(t) ?? []), waktuAspek[k]]);
+  });
   return {
-    horizon: h,
-    kejadian,
-    terlewat,
-    rataRata,
-    median: median(hasil),
-    persenNaik: (hasil.filter((x) => x > 0).length / n) * 100,
-    dasar,
-    peluangKebetulan,
-    terlaluSedikit: n < MIN_KEJADIAN,
+    ...hasil,
+    kejadian: hasil.kejadian.map((k) => ({ ...k, waktuAspek: perMasuk.get(k.tanggalMasuk)!.shift()! })),
   };
 }

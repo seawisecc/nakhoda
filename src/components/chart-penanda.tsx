@@ -18,6 +18,11 @@ export interface PenandaChart {
   /** Tanggal sesi tempat penanda ditaruh, harus ada di `batang`. */
   tanggal: string;
   teks: string;
+  /** Tanda yang mengklaim arah digambar di sisi arahnya: panah naik di
+   *  bawah lilin, panah turun di atasnya. Bentuk panahnya yang membawa
+   *  arah, warnanya cuma penguat. Tanpa arah (aspek planet), penandanya
+   *  netral di atas lilin. */
+  arah?: "naik" | "turun";
 }
 
 /** Warna token dibaca dari CSS lalu dinormalkan lewat peramban.
@@ -46,19 +51,22 @@ function pasangData(c: IChartApi | null, s: ISeriesApi<"Candlestick"> | null, b:
   else c.timeScale().fitContent();
 }
 
-function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: string, p: PenandaChart[]) {
+interface WarnaPenanda { netral: string; naik: string; turun: string }
+
+function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: WarnaPenanda, p: PenandaChart[]) {
   t?.setMarkers(
     p.map((x) => ({
       time: x.tanggal as Time,
-      position: "aboveBar" as const,
-      shape: "arrowDown" as const,
-      color: warna,
+      position: x.arah === "naik" ? ("belowBar" as const) : ("aboveBar" as const),
+      shape: x.arah === "naik" ? ("arrowUp" as const) : ("arrowDown" as const),
+      color: x.arah ? warna[x.arah] : warna.netral,
       text: x.teks,
     })),
   );
 }
 
-/** Chart lilin yang digambar sendiri, bukan widget TradingView.
+/** Chart lilin yang digambar sendiri, bukan widget TradingView. Dipakai
+ *  tampilan Astro dan Sinyal.
  *
  *  Widget TradingView adalah iframe, dan tidak ada cara menaruh penanda di
  *  dalamnya. lightweight-charts (juga buatan TradingView, open source)
@@ -66,9 +74,9 @@ function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: string, p
  *  Karena itu keduanya hidup berdampingan, bukan saling menggantikan.
  *
  *  Chart, data, dan penanda dipasang di tiga efek terpisah. Menyatukannya
- *  berarti membangun ulang chart setiap kali satu aspek dinyalakan, dan
+ *  berarti membangun ulang chart setiap kali satu penanda berubah, dan
  *  zoom yang sudah diatur ikut hilang. */
-export function ChartAstro({
+export function ChartPenanda({
   batang, penanda, tema,
 }: {
   batang: BatangChart[];
@@ -79,7 +87,7 @@ export function ChartAstro({
   const chart = useRef<IChartApi | null>(null);
   const seri = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const tanda = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
-  const warnaTanda = useRef("");
+  const warnaTanda = useRef<WarnaPenanda>({ netral: "", naik: "", turun: "" });
 
   // Batang dan penanda dibaca dari ref saat chart dibangun ulang karena tema,
   // supaya efek tema tidak perlu bergantung pada keduanya.
@@ -98,7 +106,7 @@ export function ChartAstro({
     const tepi = bacaWarna("--nk-border");
     const naik = bacaWarna("--nk-naik");
     const turun = bacaWarna("--nk-turun");
-    warnaTanda.current = bacaWarna("--nk-info");
+    warnaTanda.current = { netral: bacaWarna("--nk-info"), naik, turun };
     const huruf = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
 
     const c = createChart(el, {
