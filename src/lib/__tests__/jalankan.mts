@@ -10,5 +10,6 @@ await import("./tinjauan.test");
 await import("./urai.test");
 await import("./level.test");
 await import("./format.test");
+await import("./astro.test");
 
 ringkasan();

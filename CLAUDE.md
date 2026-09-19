@@ -18,7 +18,7 @@ memintanya secara eksplisit.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 196 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 214 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
@@ -143,13 +143,13 @@ dengan alasannya masing-masing; yang di bawah ini ringkasannya.
 ## Struktur
 
 ```
-src/app/            Halaman App Router + route API (harga, kurs, ohlc)
+src/app/            Halaman App Router + route API (harga, kurs, ohlc, riwayat)
 src/app/fonts/      Doto (dot-matrix) di-host sendiri, dipakai .angka-sorot
 src/components/ui/  Kit dasar: kartu, tombol, isian, tabel, grafik, panel
 src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, trade, kinerja, risiko, tinjauan,
-                    level, biaya, tonggak
+                    level, biaya, tonggak, astro (aspek planet + ujinya)
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
 scripts/            tambah-saran, tambah-alokasi, set-kunci, deploy-rules,
                     buat-ikon, validasi-palet

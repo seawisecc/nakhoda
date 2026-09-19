@@ -10,6 +10,7 @@ import { formatPersen, formatQty, formatUang, tandaArah } from "@/lib/format";
 import { Isian, Kartu, Kosong, Pilihan, warnaArah } from "@/components/ui/dasar";
 import { ChartTradingView, simbolTradingView } from "@/components/tradingview";
 import { PanelLevel } from "@/components/panel-level";
+import { TampilanAstro } from "@/components/tampilan-astro";
 import { cn } from "@/lib/cn";
 
 export default function HalamanChart() {
@@ -20,6 +21,7 @@ export default function HalamanChart() {
   const paramJenis = useParamKueri("jenis");
   const [pilihan, setPilihan] = useState<{ ticker: string; jenis: JenisAset } | null>(null);
   const [panelTerbuka, setPanelTerbuka] = useState(true);
+  const [mode, setMode] = useState<"tradingview" | "astro">("tradingview");
 
   const pintasan = useMemo(() => {
     const dariPosisi = posisiAktif.map((p) => ({ ticker: p.ticker, jenisAset: p.jenisAset }));
@@ -77,6 +79,23 @@ export default function HalamanChart() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {/* Dua chart, bukan satu: widget TradingView tidak bisa diberi
+              penanda, dan chart sendiri tidak punya indikatornya. */}
+          <div className="flex h-9 border border-bordr" role="group" aria-label="Jenis chart">
+            {(["tradingview", "astro"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                aria-pressed={mode === m}
+                className={cn(
+                  "px-3 font-mono text-[11px] tracking-[0.08em] uppercase transition",
+                  mode === m ? "bg-aksen-lembut text-aksen" : "text-ink-faint hover:text-ink-soft",
+                )}
+              >
+                {m === "tradingview" ? "Chart" : "Astro"}
+              </button>
+            ))}
+          </div>
           <Isian
             value={ticker}
             onChange={(e) => setPilihan({ ticker: e.target.value.toUpperCase(), jenis })}
@@ -108,7 +127,10 @@ export default function HalamanChart() {
           ) : null}
           <button
             onClick={() => setPanelTerbuka((s) => !s)}
-            className="hidden size-9 place-items-center border border-bordr text-ink-faint transition hover:text-ink lg:grid"
+            className={cn(
+              "hidden size-9 place-items-center border border-bordr text-ink-faint transition hover:text-ink",
+              mode === "tradingview" && "lg:grid",
+            )}
             title={panelTerbuka ? "Sembunyikan level" : "Tampilkan level"}
             aria-label={panelTerbuka ? "Sembunyikan panel level" : "Tampilkan panel level"}
           >
@@ -150,7 +172,9 @@ export default function HalamanChart() {
         </div>
       ) : null}
 
-      {simbol ? (
+      {simbol && mode === "astro" ? (
+        <TampilanAstro key={`${ticker}-${jenis}`} ticker={ticker.trim().toUpperCase()} jenisAset={jenis} tema={aktif} />
+      ) : simbol ? (
         <div
           className={cn(
             "grid gap-3",

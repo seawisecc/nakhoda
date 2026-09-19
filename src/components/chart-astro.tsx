@@ -1,0 +1,140 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import {
+  CandlestickSeries, ColorType, createChart, createSeriesMarkers,
+  type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type Time,
+} from "lightweight-charts";
+
+export interface BatangChart {
+  tanggal: string;
+  buka: number;
+  tinggi: number;
+  rendah: number;
+  tutup: number;
+}
+
+export interface PenandaChart {
+  /** Tanggal sesi tempat penanda ditaruh, harus ada di `batang`. */
+  tanggal: string;
+  teks: string;
+}
+
+/** Warna token dibaca dari CSS lalu dinormalkan lewat peramban.
+ *
+ *  Kanvas tidak mengerti var(), dan pengurai warna lightweight-charts tidak
+ *  mengerti sintaks rgb() berspasi yang dipakai beberapa token. Menaruh
+ *  warnanya di elemen sementara membuat peramban sendiri yang
+ *  menerjemahkannya ke bentuk rgba() berkoma yang pasti terbaca. */
+function bacaWarna(token: string): string {
+  const el = document.createElement("span");
+  el.style.color = `var(${token})`;
+  document.body.appendChild(el);
+  const warna = getComputedStyle(el).color;
+  el.remove();
+  return warna;
+}
+
+function pasangData(c: IChartApi | null, s: ISeriesApi<"Candlestick"> | null, b: BatangChart[]) {
+  if (!c || !s) return;
+  s.setData(
+    b.map((x) => ({ time: x.tanggal as Time, open: x.buka, high: x.tinggi, low: x.rendah, close: x.tutup })),
+  );
+  // Dua tahun terakhir sebagai tampilan awal. Satu dekade penuh membuat
+  // lilinnya setipis rambut dan penandanya saling menumpuk.
+  if (b.length > 500) c.timeScale().setVisibleLogicalRange({ from: b.length - 500, to: b.length + 5 });
+  else c.timeScale().fitContent();
+}
+
+function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: string, p: PenandaChart[]) {
+  t?.setMarkers(
+    p.map((x) => ({
+      time: x.tanggal as Time,
+      position: "aboveBar" as const,
+      shape: "arrowDown" as const,
+      color: warna,
+      text: x.teks,
+    })),
+  );
+}
+
+/** Chart lilin yang digambar sendiri, bukan widget TradingView.
+ *
+ *  Widget TradingView adalah iframe, dan tidak ada cara menaruh penanda di
+ *  dalamnya. lightweight-charts (juga buatan TradingView, open source)
+ *  memberi kanvas yang bisa ditandai, tapi tanpa RSI dan kawan-kawan.
+ *  Karena itu keduanya hidup berdampingan, bukan saling menggantikan.
+ *
+ *  Chart, data, dan penanda dipasang di tiga efek terpisah. Menyatukannya
+ *  berarti membangun ulang chart setiap kali satu aspek dinyalakan, dan
+ *  zoom yang sudah diatur ikut hilang. */
+export function ChartAstro({
+  batang, penanda, tema,
+}: {
+  batang: BatangChart[];
+  penanda: PenandaChart[];
+  tema: string;
+}) {
+  const wadah = useRef<HTMLDivElement>(null);
+  const chart = useRef<IChartApi | null>(null);
+  const seri = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const tanda = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const warnaTanda = useRef("");
+
+  // Batang dan penanda dibaca dari ref saat chart dibangun ulang karena tema,
+  // supaya efek tema tidak perlu bergantung pada keduanya.
+  const batangKini = useRef(batang);
+  const penandaKini = useRef(penanda);
+  useEffect(() => {
+    batangKini.current = batang;
+    penandaKini.current = penanda;
+  });
+
+  useEffect(() => {
+    const el = wadah.current;
+    if (!el) return;
+    const tinta = bacaWarna("--nk-ink-faint");
+    const garis = bacaWarna("--nk-grid");
+    const tepi = bacaWarna("--nk-border");
+    const naik = bacaWarna("--nk-naik");
+    const turun = bacaWarna("--nk-turun");
+    warnaTanda.current = bacaWarna("--nk-info");
+    const huruf = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+
+    const c = createChart(el, {
+      autoSize: true,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: tinta,
+        fontFamily: huruf || "monospace",
+        fontSize: 11,
+      },
+      grid: { vertLines: { color: garis }, horzLines: { color: garis } },
+      rightPriceScale: { borderColor: tepi },
+      timeScale: { borderColor: tepi },
+      crosshair: { mode: 0 },
+    });
+    const s = c.addSeries(CandlestickSeries, {
+      upColor: naik, downColor: turun,
+      wickUpColor: naik, wickDownColor: turun,
+      borderVisible: false,
+    });
+    chart.current = c;
+    seri.current = s;
+    tanda.current = createSeriesMarkers(s, []);
+    pasangData(c, s, batangKini.current);
+    pasangPenanda(tanda.current, warnaTanda.current, penandaKini.current);
+
+    return () => {
+      c.remove();
+      chart.current = null;
+      seri.current = null;
+      tanda.current = null;
+    };
+  }, [tema]);
+
+  useEffect(() => { pasangData(chart.current, seri.current, batang); }, [batang]);
+  useEffect(() => { pasangPenanda(tanda.current, warnaTanda.current, penanda); }, [penanda]);
+
+  return <div ref={wadah} className="size-full" />;
+}
