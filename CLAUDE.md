@@ -18,7 +18,7 @@ memintanya secara eksplisit.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 251 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 264 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
@@ -135,6 +135,17 @@ dengan alasannya masing-masing; yang di bawah ini ringkasannya.
   Keduanya ditolak keras di `scripts/tambah-saran.ts`, bukan sekadar
   diperingatkan. Tanpa pembatal, tiga bulan kemudian tidak ada yang bisa
   membedakan "thesisnya rusak" dari "harganya cuma bergerak".
+- **Bentuk yang sedang berlangsung bukan kejadian, dan tidak boleh diuji
+  seolah-olah kejadian.** `bentuk.ts` cuma menggambar keadaan sekarang (garis
+  tren, level, pola ganda yang kakinya lengkap). Yang diuji adalah
+  PENEMBUSANNYA, lewat sinyal di `sinyal.ts`, dan tiap bentuk menunjuk id
+  sinyal itu di `sinyalUji`. Pola ganda yang belum menembus leher juga tidak
+  pernah masuk uji: sebagian besar tidak akan pernah menembus, dan
+  memasukkannya berarti menilai pola dengan informasi yang belum ada.
+- **Pivot cuma sah setelah SAYAP lilin di kanannya lewat.** `pivotSampai()`
+  yang menjaga itu. Memakai pivot yang "terlihat" hari ini padahal baru
+  terkonfirmasi lima hari lagi adalah cara paling mudah membuat backtest
+  terlihat hebat dan tidak bisa dipakai.
 - **Setiap tanda di chart (aspek planet, pola lilin, indikator) wajib lewat
   `uji-kejadian.ts`** dan dinilai dengan koreksi uji ganda. Tanda tanpa uji
   cuma mengundang mata mengingat yang kebetulan pas. Tombol "Jadikan saran"
@@ -156,7 +167,9 @@ src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, trade, kinerja, risiko, tinjauan,
                     level, biaya, tonggak, astro (aspek planet), sinyal (pola
-                    lilin, indikator, double bottom), uji-kejadian (uji semuanya)
+                    lilin, indikator, double bottom, garis tren, level),
+                    bentuk (gambar pola yang sedang berlangsung),
+                    uji-kejadian (uji semuanya)
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
 scripts/            tambah-saran, tambah-alokasi, set-kunci, deploy-rules,
                     buat-ikon, validasi-palet

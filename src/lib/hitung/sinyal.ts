@@ -240,6 +240,128 @@ function pivot(b: Lilin[], i: number, arah: Arah): boolean {
   return true;
 }
 
+/** Indeks semua titik balik, dihitung sekali untuk seluruh deret.
+ *
+ *  Pencarian garis tren memeriksa jendela 120 sesi di setiap lilin; tanpa
+ *  daftar ini, pivot yang sama dihitung ulang ratusan kali dan pemindaian
+ *  sepuluh tahun terasa sebagai jeda saat membuka halaman. */
+export function daftarPivot(b: Lilin[], arah: Arah): number[] {
+  const hasil: number[] = [];
+  for (let i = SAYAP; i + SAYAP < b.length; i += 1) if (pivot(b, i, arah)) hasil.push(i);
+  return hasil;
+}
+
+/** Pivot yang sudah bisa diketahui pada lilin ke-i.
+ *
+ *  Pivot baru sah setelah SAYAP lilin di kanannya lewat, jadi pada hari i
+ *  yang boleh dipakai hanya pivot sampai i - SAYAP. Memakai pivot yang
+ *  "terlihat" di i padahal baru terkonfirmasi lima hari kemudian adalah cara
+ *  paling mudah membuat backtest terlihat hebat dan tidak bisa dipakai. */
+function pivotSampai(daftar: number[], i: number, jendela: number): number[] {
+  // Dipotong lewat pencarian biner, bukan filter: filter atas seluruh daftar
+  // di setiap lilin membuat pemindaian sepuluh tahun berlipat jadi ratusan
+  // juta perbandingan.
+  const batas = (nilai: number) => {
+    let kiri = 0;
+    let kanan = daftar.length;
+    while (kiri < kanan) {
+      const tengah = (kiri + kanan) >> 1;
+      if (daftar[tengah] < nilai) kiri = tengah + 1;
+      else kanan = tengah;
+    }
+    return kiri;
+  };
+  return daftar.slice(batas(i - jendela), batas(i - SAYAP + 1));
+}
+
+export interface GarisTren {
+  /** Indeks dua pivot yang dilalui garis. */
+  dari: number;
+  sampai: number;
+  hargaDari: number;
+  hargaSampai: number;
+  /** Berapa pivot yang menyentuh garis dalam 1,5%. */
+  sentuh: number;
+}
+
+const JENDELA_TREN = 120;
+/** Garis tren butuh minimal tiga titik balik searah. Dua titik selalu bisa
+ *  dihubungkan garis, jadi garis dua titik tidak mengatakan apa-apa. */
+const PIVOT_MIN = 3;
+
+export function hargaGaris(g: GarisTren, i: number): number {
+  const kemiringan = (g.hargaSampai - g.hargaDari) / (g.sampai - g.dari);
+  return g.hargaDari + kemiringan * (i - g.dari);
+}
+
+/** Garis tren yang berlaku pada lilin ke-i: naik berarti garis penyangga di
+ *  bawah harga (dasar yang makin tinggi), turun berarti garis penahan di
+ *  atasnya (puncak yang makin rendah).
+ *
+ *  Garis ditarik lewat pivot pertama dan terakhir dari tiga pivot terakhir,
+ *  lalu ditolak kalau ada tutup yang menembusnya lebih dari 3% di antara
+ *  keduanya. Tanpa syarat itu, tiga titik mana pun bisa dihubungkan dan
+ *  hasilnya garis yang sudah lama dilanggar. */
+export function garisTren(b: Lilin[], i: number, arah: Arah, daftar: number[]): GarisTren | null {
+  const p = pivotSampai(daftar, i, JENDELA_TREN);
+  if (p.length < PIVOT_MIN) return null;
+  const tiga = p.slice(-PIVOT_MIN);
+  const harga = (j: number) => (arah === "naik" ? b[j].rendah : b[j].tinggi);
+  // Naik: dasar harus makin tinggi. Turun: puncak makin rendah.
+  for (let k = 1; k < tiga.length; k += 1) {
+    const lebihTinggi = harga(tiga[k]) > harga(tiga[k - 1]);
+    if (arah === "naik" ? !lebihTinggi : lebihTinggi) return null;
+  }
+  const g: GarisTren = {
+    dari: tiga[0], sampai: tiga[tiga.length - 1],
+    hargaDari: harga(tiga[0]), hargaSampai: harga(tiga[tiga.length - 1]),
+    sentuh: 0,
+  };
+  for (let j = g.dari; j <= i; j += 1) {
+    const garis = hargaGaris(g, j);
+    const tembus = arah === "naik" ? b[j].tutup < garis * 0.97 : b[j].tutup > garis * 1.03;
+    if (tembus && j < i) return null;
+  }
+  g.sentuh = tiga.filter((j) => Math.abs(harga(j) - hargaGaris(g, j)) / hargaGaris(g, j) <= 0.015).length;
+  return g;
+}
+
+export interface LevelMendatar {
+  harga: number;
+  /** Indeks pivot yang membentuknya. */
+  titik: number[];
+}
+
+const JENDELA_LEVEL = 180;
+/** Dua pivot dianggap satu level kalau jaraknya di bawah 2%. */
+const LEBAR_LEVEL = 0.02;
+
+/** Level mendatar yang berlaku pada lilin ke-i: penahan di atas harga
+ *  (arah turun) atau penyangga di bawahnya (arah naik), dari tiga titik
+ *  balik atau lebih yang berhenti di harga yang hampir sama. */
+export function levelMendatar(b: Lilin[], i: number, arah: Arah, daftar: number[]): LevelMendatar | null {
+  const p = pivotSampai(daftar, i, JENDELA_LEVEL);
+  if (p.length < PIVOT_MIN) return null;
+  const harga = (j: number) => (arah === "naik" ? b[j].rendah : b[j].tinggi);
+  const kini = b[i].tutup;
+  let terbaik: LevelMendatar | null = null;
+  for (const inti of p) {
+    const acuan = harga(inti);
+    // Penahan harus di atas harga sekarang, penyangga di bawahnya. Level
+    // yang sudah dilewati harga bukan level yang sedang dijaga.
+    if (arah === "naik" ? acuan >= kini : acuan <= kini) continue;
+    const titik = p.filter((j) => Math.abs(harga(j) - acuan) / acuan <= LEBAR_LEVEL);
+    if (titik.length < PIVOT_MIN) continue;
+    const rata = titik.reduce((sum, j) => sum + harga(j), 0) / titik.length;
+    // Yang dipilih level terdekat ke harga sekarang: itu yang akan ditemui
+    // lebih dulu, dan itu yang jadi pemicunya.
+    if (!terbaik || Math.abs(rata - kini) < Math.abs(terbaik.harga - kini)) {
+      terbaik = { harga: rata, titik };
+    }
+  }
+  return terbaik;
+}
+
 export interface PolaGanda {
   /** Indeks kaki pertama dan kedua. */
   kaki1: number;
@@ -292,6 +414,57 @@ export function polaGanda(b: Lilin[], i: number, arah: Arah): PolaGanda | null {
         ? b[i].tutup > leher && b[i - 1].tutup <= leher
         : b[i].tutup < leher && b[i - 1].tutup >= leher;
       if (!tembus) continue;
+      const ekstrem = arah === "naik"
+        ? Math.min(harga(kaki1), harga(kaki2))
+        : Math.max(harga(kaki1), harga(kaki2));
+      return { kaki1, kaki2, leher, ekstrem };
+    }
+  }
+  return null;
+}
+
+/** Double bottom atau top yang kakinya sudah lengkap tapi lehernya BELUM
+ *  ditembus, dilihat dari lilin ke-i.
+ *
+ *  Ini yang digambar sebagai "sedang terbentuk". Pola yang belum tembus
+ *  belum boleh dihitung sebagai kejadian di uji mana pun: sebagian besar
+ *  tidak akan pernah menembus lehernya, dan memasukkannya berarti menilai
+ *  pola dengan informasi yang belum ada. */
+export function polaGandaTerbentuk(b: Lilin[], i: number, arah: Arah): PolaGanda | null {
+  if (i < JARAK_MIN + SAYAP + 1 || i >= b.length) return null;
+  const kaki: number[] = [];
+  for (let j = Math.max(SAYAP, i - JARAK_MAKS - TUNDA_MAKS); j <= i - SAYAP; j += 1) {
+    if (pivot(b, j, arah)) kaki.push(j);
+  }
+  if (kaki.length < 2) return null;
+  const harga = (j: number) => (arah === "naik" ? b[j].rendah : b[j].tinggi);
+
+  for (let x = kaki.length - 1; x >= 1; x -= 1) {
+    const kaki2 = kaki[x];
+    if (i - kaki2 > TUNDA_MAKS) break;
+    for (let y = x - 1; y >= 0; y -= 1) {
+      const kaki1 = kaki[y];
+      const jarak = kaki2 - kaki1;
+      if (jarak > JARAK_MAKS) break;
+      if (jarak < JARAK_MIN) continue;
+      if (Math.abs(harga(kaki2) - harga(kaki1)) / harga(kaki1) > BEDA_KAKI) continue;
+      let leher = arah === "naik" ? -Infinity : Infinity;
+      for (let j = kaki1; j <= kaki2; j += 1) {
+        leher = arah === "naik" ? Math.max(leher, b[j].tinggi) : Math.min(leher, b[j].rendah);
+      }
+      const dasar = Math.max(harga(kaki1), harga(kaki2));
+      const puncak = Math.min(harga(kaki1), harga(kaki2));
+      const cukupDalam = arah === "naik"
+        ? leher >= dasar * (1 + DALAM_MIN)
+        : leher <= puncak * (1 - DALAM_MIN);
+      if (!cukupDalam) continue;
+      // Belum tembus: tidak ada satu pun tutup sesudah kaki kedua yang
+      // melewati leher.
+      let sudahTembus = false;
+      for (let j = kaki2 + 1; j <= i; j += 1) {
+        if (arah === "naik" ? b[j].tutup > leher : b[j].tutup < leher) sudahTembus = true;
+      }
+      if (sudahTembus) continue;
       const ekstrem = arah === "naik"
         ? Math.min(harga(kaki1), harga(kaki2))
         : Math.max(harga(kaki1), harga(kaki2));
@@ -410,6 +583,58 @@ export const DAFTAR_SINYAL: DefinisiSinyal[] = [
     keterangan: "Dua puncak sejajar, lalu tutup menembus lembah di antaranya.",
     titikStop: (b, i) => polaGanda(b, i, "turun")?.ekstrem ?? null,
     deteksi: (b) => tiapIndeks(b, JARAK_MIN + SAYAP + 1, (i) => polaGanda(b, i, "turun") !== null),
+  },
+  {
+    id: "tembus-tren-turun", nama: "Tembus garis tren turun", arah: "naik", kelompok: "pola", panjangStop: 10,
+    keterangan: "Tutup melewati garis yang menghubungkan puncak-puncak yang makin rendah.",
+    deteksi: (b) => {
+      const p = daftarPivot(b, "turun");
+      const garis = (i: number) => garisTren(b, i, "turun", p);
+      return silang((i) => {
+        const g = garis(i);
+        return g ? b[i].tutup > hargaGaris(g, i) : null;
+      }, b, SAYAP + JENDELA_TREN);
+    },
+  },
+  {
+    id: "jebol-tren-naik", nama: "Jebol garis tren naik", arah: "turun", kelompok: "pola", panjangStop: 10,
+    keterangan: "Tutup jatuh di bawah garis yang menghubungkan dasar-dasar yang makin tinggi.",
+    deteksi: (b) => {
+      const p = daftarPivot(b, "naik");
+      const garis = (i: number) => garisTren(b, i, "naik", p);
+      return silang((i) => {
+        const g = garis(i);
+        return g ? b[i].tutup < hargaGaris(g, i) : null;
+      }, b, SAYAP + JENDELA_TREN);
+    },
+  },
+  {
+    id: "tembus-resisten", nama: "Tembus resisten mendatar", arah: "naik", kelompok: "pola", panjangStop: 10,
+    keterangan: "Tutup melewati harga yang sudah tiga kali atau lebih menahan kenaikan.",
+    deteksi: (b) => {
+      const p = daftarPivot(b, "turun");
+      return silang((i) => {
+        const l = levelMendatar(b, i, "turun", p);
+        // Level dicari dari harga di i-1 supaya penembusan di i tidak
+        // langsung membuat levelnya dianggap sudah lewat dan hilang.
+        const lSebelum = levelMendatar(b, i - 1, "turun", p);
+        if (!lSebelum) return null;
+        return b[i].tutup > lSebelum.harga ? true : l ? false : null;
+      }, b, SAYAP + JENDELA_LEVEL);
+    },
+  },
+  {
+    id: "jebol-support", nama: "Jebol support mendatar", arah: "turun", kelompok: "pola", panjangStop: 10,
+    keterangan: "Tutup jatuh di bawah harga yang sudah tiga kali atau lebih menahan penurunan.",
+    deteksi: (b) => {
+      const p = daftarPivot(b, "naik");
+      return silang((i) => {
+        const l = levelMendatar(b, i, "naik", p);
+        const lSebelum = levelMendatar(b, i - 1, "naik", p);
+        if (!lSebelum) return null;
+        return b[i].tutup < lSebelum.harga ? true : l ? false : null;
+      }, b, SAYAP + JENDELA_LEVEL);
+    },
   },
   {
     id: "volume-naik", nama: "Lonjakan volume naik", arah: "naik", kelompok: "breakout", panjangStop: 10,

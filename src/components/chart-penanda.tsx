@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import {
-  CandlestickSeries, ColorType, createChart, createSeriesMarkers,
+  CandlestickSeries, ColorType, LineSeries, LineStyle, createChart, createSeriesMarkers,
   type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type Time,
 } from "lightweight-charts";
 
@@ -23,6 +23,13 @@ export interface PenandaChart {
    *  arah, warnanya cuma penguat. Tanpa arah (aspek planet), penandanya
    *  netral di atas lilin. */
   arah?: "naik" | "turun";
+}
+
+export interface GarisChart {
+  titik: { tanggal: string; harga: number }[];
+  putus?: boolean;
+  /** Disorot penuh, atau diredupkan karena bentuk lain yang sedang dipilih. */
+  redup?: boolean;
 }
 
 /** Warna token dibaca dari CSS lalu dinormalkan lewat peramban.
@@ -69,6 +76,42 @@ function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: WarnaPena
   );
 }
 
+/** Garis bentuk digambar sebagai seri baris tersendiri, bukan di atas kanvas
+ *  terpisah. Seri ikut sumbu waktu dan harga chart-nya, jadi garisnya tetap
+ *  menempel di tempatnya saat chart digeser atau di-zoom; overlay yang
+ *  digambar sendiri harus menghitung ulang posisinya di setiap gerakan dan
+ *  selalu tertinggal satu frame.
+ *
+ *  Seri lama dibuang, bukan dipakai ulang: jumlah garis berubah setiap kali
+ *  bentuk yang dipilih berganti. */
+function pasangGaris(
+  c: IChartApi | null,
+  simpanan: { current: ISeriesApi<"Line">[] },
+  warna: string,
+  garis: GarisChart[],
+) {
+  if (!c) return;
+  for (const s of simpanan.current) {
+    try {
+      c.removeSeries(s);
+    } catch {
+      // Seri sudah ikut terbuang saat chart dibangun ulang.
+    }
+  }
+  simpanan.current = garis.map((g) => {
+    const seri = c.addSeries(LineSeries, {
+      color: warna,
+      lineWidth: 2,
+      lineStyle: g.putus ? LineStyle.Dashed : LineStyle.Solid,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+    seri.setData(g.titik.map((t) => ({ time: t.tanggal as Time, value: t.harga })));
+    return seri;
+  });
+}
+
 /** Chart lilin yang digambar sendiri, bukan widget TradingView. Dipakai
  *  tampilan Astro dan Sinyal.
  *
@@ -81,25 +124,30 @@ function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: WarnaPena
  *  berarti membangun ulang chart setiap kali satu penanda berubah, dan
  *  zoom yang sudah diatur ikut hilang. */
 export function ChartPenanda({
-  batang, penanda, tema,
+  batang, penanda, garis = [], tema,
 }: {
   batang: BatangChart[];
   penanda: PenandaChart[];
+  /** Garis bentuk: tren, leher pola, level mendatar. */
+  garis?: GarisChart[];
   tema: string;
 }) {
   const wadah = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const seri = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const tanda = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const seriGaris = useRef<ISeriesApi<"Line">[]>([]);
   const warnaTanda = useRef<WarnaPenanda>({ netral: "", naik: "", turun: "" });
 
   // Batang dan penanda dibaca dari ref saat chart dibangun ulang karena tema,
   // supaya efek tema tidak perlu bergantung pada keduanya.
   const batangKini = useRef(batang);
   const penandaKini = useRef(penanda);
+  const garisKini = useRef(garis);
   useEffect(() => {
     batangKini.current = batang;
     penandaKini.current = penanda;
+    garisKini.current = garis;
   });
 
   useEffect(() => {
@@ -136,8 +184,10 @@ export function ChartPenanda({
     tanda.current = createSeriesMarkers(s, []);
     pasangData(c, s, batangKini.current, el.clientWidth);
     pasangPenanda(tanda.current, warnaTanda.current, penandaKini.current);
+    pasangGaris(c, seriGaris, warnaTanda.current.netral, garisKini.current);
 
     return () => {
+      seriGaris.current = [];
       c.remove();
       chart.current = null;
       seri.current = null;
@@ -149,6 +199,9 @@ export function ChartPenanda({
     pasangData(chart.current, seri.current, batang, wadah.current?.clientWidth ?? 0);
   }, [batang]);
   useEffect(() => { pasangPenanda(tanda.current, warnaTanda.current, penanda); }, [penanda]);
+  useEffect(() => {
+    pasangGaris(chart.current, seriGaris, warnaTanda.current.netral, garis);
+  }, [garis]);
 
   return <div ref={wadah} className="size-full" />;
 }

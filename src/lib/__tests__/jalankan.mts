@@ -12,5 +12,6 @@ await import("./level.test");
 await import("./format.test");
 await import("./astro.test");
 await import("./sinyal.test");
+await import("./bentuk.test");
 
 ringkasan();
