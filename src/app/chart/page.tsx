@@ -7,8 +7,9 @@ import { usePortofolio } from "@/lib/data/portofolio";
 import { useTema } from "@/lib/tema";
 import { useParamKueri } from "@/lib/param";
 import { formatPersen, formatQty, formatUang, tandaArah } from "@/lib/format";
-import { Isian, Kartu, Kosong, Pilihan, warnaArah } from "@/components/ui/dasar";
+import { Kartu, Kosong, Pilihan, warnaArah } from "@/components/ui/dasar";
 import { ChartTradingView, simbolTradingView } from "@/components/tradingview";
+import { CariTicker } from "@/components/cari-ticker";
 import { PanelLevel } from "@/components/panel-level";
 import { TampilanAstro } from "@/components/tampilan-astro";
 import { TampilanSinyal } from "@/components/tampilan-sinyal";
@@ -16,7 +17,7 @@ import { TampilanPola } from "@/components/tampilan-pola";
 import { cn } from "@/lib/cn";
 
 export default function HalamanChart() {
-  const { posisiAktif, saran, jurnal, kurs } = usePortofolio();
+  const { posisiAktif, jurnal, kurs } = usePortofolio();
   const { aktif } = useTema();
 
   const paramTicker = useParamKueri("ticker");
@@ -25,16 +26,14 @@ export default function HalamanChart() {
   const [panelTerbuka, setPanelTerbuka] = useState(true);
   const [mode, setMode] = useState<"tradingview" | "sinyal" | "pola" | "astro">("tradingview");
 
-  const pintasan = useMemo(() => {
-    const dariPosisi = posisiAktif.map((p) => ({ ticker: p.ticker, jenisAset: p.jenisAset }));
-    const punya = new Set(dariPosisi.map((p) => p.ticker));
-    const dariSaran = saran
-      .filter((s) => !punya.has(s.ticker))
-      .map((s) => ({ ticker: s.ticker, jenisAset: s.jenisAset }));
-    const unik = new Map<string, { ticker: string; jenisAset: JenisAset }>();
-    for (const x of [...dariPosisi, ...dariSaran]) unik.set(x.ticker, x);
-    return [...unik.values()];
-  }, [posisiAktif, saran]);
+  /* Cuma posisi yang sedang dipegang. Ticker dari saran pernah ikut di sini,
+     dan hasilnya CVX yang ordernya batal tetap nongkrong di bilah pintasan
+     seolah-olah bagian dari portofolio. Yang tidak dipegang tetap bisa dibuka
+     lewat kolom pencarian di sebelah kanan. */
+  const pintasan = useMemo(
+    () => posisiAktif.map((p) => ({ ticker: p.ticker, jenisAset: p.jenisAset })),
+    [posisiAktif],
+  );
 
   const bawaan = useMemo<{ ticker: string; jenis: JenisAset }>(() => {
     if (paramTicker) {
@@ -102,13 +101,11 @@ export default function HalamanChart() {
               </button>
             ))}
           </div>
-          <Isian
-            value={ticker}
-            onChange={(e) => setPilihan({ ticker: e.target.value.toUpperCase(), jenis })}
-            placeholder="Ticker"
-            spellCheck={false}
-            aria-label="Ticker"
-            className="h-9 w-24 flex-1 py-1.5 lg:w-28 lg:flex-none"
+          <CariTicker
+            nilai={ticker}
+            jenis={jenis}
+            pilih={setPilihan}
+            className="w-24 flex-1 lg:w-44 lg:flex-none"
           />
           <Pilihan
             value={jenis}

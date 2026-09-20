@@ -160,7 +160,8 @@ dengan alasannya masing-masing; yang di bawah ini ringkasannya.
 ## Struktur
 
 ```
-src/app/            Halaman App Router + route API (harga, kurs, ohlc, riwayat)
+src/app/            Halaman App Router + route API (harga, kurs, ohlc, riwayat,
+                    cari)
 src/app/fonts/      Doto (dot-matrix) di-host sendiri, dipakai .angka-sorot
 src/components/ui/  Kit dasar: kartu, tombol, isian, tabel, grafik, panel
 src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
@@ -259,6 +260,7 @@ usulan alokasi berdiri di atasnya, dan itu harus dikatakan setiap kali.
   `mataUang: IDR`, jangan dikonversi manual ke dolar.
 
 **Celah yang belum ditutup:** dividen belum dimodelkan (Agus rutin menerimanya
-dari KMI, NVDA, MSFT), dan laba realisasi penjualan GE 8 Jun 2026 belum
+dari KMI, NVDA, MSFT; yang terakhir terlihat MSFT $0,17 pada 11 Sep 2026 dan
+belum tercatat di mana pun), dan laba realisasi penjualan GE 8 Jun 2026 belum
 tercatat karena harga belinya tidak diketahui, jadi siklusnya ditandai
 `basisTidakLengkap` dan tidak ikut win rate.
