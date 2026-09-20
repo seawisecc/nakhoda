@@ -199,8 +199,8 @@ export function TampilanSinyal({
             </div>
           )}
           {batang ? (
-            <span className="label-mikro pointer-events-none absolute top-3 left-4 z-10">
-              {ticker} · USD · harian · {sumber}
+            <span className="label-mikro pointer-events-none absolute top-3 left-4 z-10 max-w-[calc(100%-6rem)] truncate">
+              {ticker} · USD · {sumber}
               {terpilih ? ` · ${terpilih.def.nama}` : ""}
             </span>
           ) : null}

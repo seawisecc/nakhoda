@@ -1,5 +1,5 @@
 import {
-  DAFTAR_SINYAL, ema, kejadianSinyal, levelSinyal, macd, rsi, sma, type Lilin,
+  DAFTAR_SINYAL, ema, kejadianSinyal, levelSinyal, macd, polaGanda, rsi, sma, type Lilin,
 } from "@/lib/hitung/sinyal";
 import {
   kalimatKesimpulan, nilaiUji, ujiDariIndeks, type HasilUji,
@@ -197,5 +197,62 @@ grup("kesimpulan", () => {
     const h = ujiDariIndeks(deret, [1], 2);
     samaDengan(h.kejadian[0].tanggalMasuk, "d1");
     mendekati(h.kejadian[0].hasil, 0.21, 1e-9);
+  });
+});
+
+grup("pola ganda", () => {
+  /** Rangkaian harga jadi lilin dengan rentang tipis di sekitar tutupnya. */
+  const dariHarga = (harga: number[]): Lilin[] =>
+    harga.map((h) => l(h, h + 0.3, h - 0.3, h));
+
+  /** W: turun ke 90, naik ke 100 (leher), turun lagi ke 90, lalu naik
+   *  menembus leher di lilin terakhir. */
+  const w = (kakiKedua = 90) => dariHarga([
+    ...Array.from({ length: 12 }, (_, i) => 100 - i), // 100 turun ke 89
+    ...Array.from({ length: 11 }, (_, i) => 89 + i), // naik ke 99
+    100, 99.5,
+    ...Array.from({ length: 9 }, (_, i) => 99 - i), // turun ke 91
+    kakiKedua,
+    ...Array.from({ length: 9 }, (_, i) => kakiKedua + 1 + i),
+    100.5,
+  ]);
+
+  uji("double bottom dikenali di lilin yang menembus leher", () => {
+    const b = w();
+    const p = polaGanda(b, b.length - 1, "naik")!;
+    benar(p !== null, "pola harus ketemu");
+    mendekati(p.ekstrem, 88.7, 1e-9);
+    mendekati(p.leher, 100.3, 1e-9);
+    benar(terakhir(def("double-bottom").deteksi(b)));
+  });
+
+  uji("penembusan ditandai sekali, bukan setiap sesi di atas leher", () => {
+    const b = [...w(), ...dariHarga([101, 102, 103])];
+    samaDengan(def("double-bottom").deteksi(b).filter(Boolean).length, 1);
+  });
+
+  uji("kaki kedua yang jauh lebih tinggi bukan double bottom", () => {
+    // 96 terhadap 89 itu 7,9%, di atas batas 4%.
+    benar(!terakhir(def("double-bottom").deteksi(w(96))));
+  });
+
+  uji("stop double bottom ada di kaki, bukan di lilin terakhir", () => {
+    const b = w();
+    const x = levelSinyal(b, b.length - 1, def("double-bottom"), 0.05)!;
+    mendekati(x.stop, 88.7, 1e-9);
+    benar(x.entry > 100, "entry di atas leher");
+  });
+
+  uji("double top mencerminkan double bottom", () => {
+    const m = w().map((x) => l(200 - x.buka, 200 - x.rendah, 200 - x.tinggi, 200 - x.tutup));
+    benar(terakhir(def("double-top").deteksi(m)));
+    const p = polaGanda(m, m.length - 1, "turun")!;
+    mendekati(p.ekstrem, 111.3, 1e-9);
+  });
+
+  uji("tren naik mulus tidak menghasilkan pola ganda", () => {
+    const b = dariHarga(Array.from({ length: 60 }, (_, i) => 100 + i));
+    samaDengan(def("double-bottom").deteksi(b).some(Boolean), false);
+    samaDengan(def("double-top").deteksi(b).some(Boolean), false);
   });
 });

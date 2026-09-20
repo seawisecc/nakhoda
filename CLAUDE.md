@@ -18,7 +18,7 @@ memintanya secara eksplisit.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 245 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 251 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
@@ -156,7 +156,7 @@ src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
 src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
 src/lib/hitung/     Logika murni: posisi, trade, kinerja, risiko, tinjauan,
                     level, biaya, tonggak, astro (aspek planet), sinyal (pola
-                    lilin dan indikator), uji-kejadian (uji keduanya)
+                    lilin, indikator, double bottom), uji-kejadian (uji semuanya)
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
 scripts/            tambah-saran, tambah-alokasi, set-kunci, deploy-rules,
                     buat-ikon, validasi-palet
@@ -202,6 +202,11 @@ dia yang membuat app bisa dinilai tanpa setup.
   viewBox 512 jatuh jadi 0,94px dan hilang setengah ke antialiasing. Ada dua
   sumber: `ikon.svg` untuk ukuran besar, `ikon-kecil.svg` untuk ukuran tab.
   Keduanya dirender `npx tsx scripts/buat-ikon.ts`.
+- **Baris alat yang tidak boleh wrap akan terpotong diam-diam di ponsel.**
+  `shrink-0` pada wadah berisi beberapa kontrol membuat barisnya meluber ke
+  luar viewport tanpa scrollbar: di halaman Chart, pemilih jenis aset dan
+  tombolnya hilang di lebar 390px dan tidak ada cara menjangkaunya. Yang
+  meluber tidak terlihat di layar lebar sama sekali.
 - **Tampilan ponsel tidak bisa diuji dengan mengubah ukuran jendela.** Kalau
   jendelanya maximized, Chrome mengabaikan permintaan resize sementara tetap
   melaporkan sukses, dan `window.innerWidth` tidak berubah. Cara yang jalan:

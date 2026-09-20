@@ -79,17 +79,21 @@ export default function HalamanChart() {
           })}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Di ponsel alat-alatnya tidak muat satu baris, dan sebelumnya
+            baris ini meluber ke luar layar: pemilih jenis aset dan tombolnya
+            terpotong tanpa cara menggulirnya. Sekarang pemilih mode mengambil
+            satu baris penuh dan sisanya turun ke baris berikutnya. */}
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
           {/* Lebih dari satu chart: widget TradingView tidak bisa diberi
               penanda, dan chart sendiri tidak punya indikatornya. */}
-          <div className="flex h-9 border border-bordr" role="group" aria-label="Jenis chart">
+          <div className="flex h-9 w-full shrink-0 border border-bordr lg:w-auto" role="group" aria-label="Jenis chart">
             {(["tradingview", "sinyal", "astro"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
                 aria-pressed={mode === m}
                 className={cn(
-                  "px-3 font-mono text-[11px] tracking-[0.08em] uppercase transition",
+                  "flex-1 px-3 font-mono text-[11px] tracking-[0.08em] uppercase transition lg:flex-none",
                   mode === m ? "bg-aksen-lembut text-aksen" : "text-ink-faint hover:text-ink-soft",
                 )}
               >
@@ -103,13 +107,13 @@ export default function HalamanChart() {
             placeholder="Ticker"
             spellCheck={false}
             aria-label="Ticker"
-            className="h-9 w-28 py-1.5"
+            className="h-9 w-24 flex-1 py-1.5 lg:w-28 lg:flex-none"
           />
           <Pilihan
             value={jenis}
             onChange={(e) => setPilihan({ ticker, jenis: e.target.value as JenisAset })}
             aria-label="Jenis aset"
-            className="h-9 w-32 py-1.5"
+            className="h-9 w-32 shrink-0 py-1.5"
           >
             <option value="saham">Saham AS</option>
             <option value="kripto">Kripto</option>
@@ -119,7 +123,7 @@ export default function HalamanChart() {
               href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(simbol)}`}
               target="_blank"
               rel="noreferrer noopener"
-              className="grid size-9 place-items-center border border-bordr text-ink-faint transition hover:text-ink"
+              className="grid size-9 shrink-0 place-items-center border border-bordr text-ink-faint transition hover:text-ink"
               title="Buka di TradingView"
               aria-label="Buka di TradingView"
             >

@@ -40,14 +40,18 @@ function bacaWarna(token: string): string {
   return warna;
 }
 
-function pasangData(c: IChartApi | null, s: ISeriesApi<"Candlestick"> | null, b: BatangChart[]) {
+function pasangData(
+  c: IChartApi | null, s: ISeriesApi<"Candlestick"> | null, b: BatangChart[], lebar: number,
+) {
   if (!c || !s) return;
   s.setData(
     b.map((x) => ({ time: x.tanggal as Time, open: x.buka, high: x.tinggi, low: x.rendah, close: x.tutup })),
   );
-  // Dua tahun terakhir sebagai tampilan awal. Satu dekade penuh membuat
-  // lilinnya setipis rambut dan penandanya saling menumpuk.
-  if (b.length > 500) c.timeScale().setVisibleLogicalRange({ from: b.length - 500, to: b.length + 5 });
+  // Dua tahun terakhir sebagai tampilan awal, dan sembilan bulan di layar
+  // ponsel. Satu dekade penuh membuat lilinnya setipis rambut dan
+  // penandanya saling menumpuk; di lebar 390px, dua tahun sudah begitu.
+  const jumlah = lebar > 0 && lebar < 520 ? 180 : 500;
+  if (b.length > jumlah) c.timeScale().setVisibleLogicalRange({ from: b.length - jumlah, to: b.length + 5 });
   else c.timeScale().fitContent();
 }
 
@@ -130,7 +134,7 @@ export function ChartPenanda({
     chart.current = c;
     seri.current = s;
     tanda.current = createSeriesMarkers(s, []);
-    pasangData(c, s, batangKini.current);
+    pasangData(c, s, batangKini.current, el.clientWidth);
     pasangPenanda(tanda.current, warnaTanda.current, penandaKini.current);
 
     return () => {
@@ -141,7 +145,9 @@ export function ChartPenanda({
     };
   }, [tema]);
 
-  useEffect(() => { pasangData(chart.current, seri.current, batang); }, [batang]);
+  useEffect(() => {
+    pasangData(chart.current, seri.current, batang, wadah.current?.clientWidth ?? 0);
+  }, [batang]);
   useEffect(() => { pasangPenanda(tanda.current, warnaTanda.current, penanda); }, [penanda]);
 
   return <div ref={wadah} className="size-full" />;

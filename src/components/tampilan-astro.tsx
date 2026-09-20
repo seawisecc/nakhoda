@@ -133,7 +133,7 @@ export function TampilanAstro({
             </div>
           )}
           {batang ? (
-            <span className="label-mikro pointer-events-none absolute top-3 left-4 z-10">
+            <span className="label-mikro pointer-events-none absolute top-3 left-4 z-10 max-w-[calc(100%-6rem)] truncate">
               {ticker} · USD · harian · {sumber}
             </span>
           ) : null}

@@ -1,6 +1,7 @@
 import type { Arah } from "./uji-kejadian";
 
-/* Pola lilin, indikator, dan breakout, dideteksi dari batang harian.
+/* Pola lilin, indikator, breakout, dan pola ganda, dideteksi dari batang
+ * harian.
  *
  * Setiap definisi di sini sengaja kaku dan tertulis sebagai angka. Pola yang
  * dinilai dengan mata ("kelihatannya seperti hammer") tidak bisa diuji,
@@ -11,7 +12,9 @@ import type { Arah } from "./uji-kejadian";
  *
  * Head and shoulders, segitiga, dan bendera tidak ada di sini. Dua trader
  * menggambar garisnya berbeda untuk chart yang sama, jadi deteksi otomatisnya
- * akan menguji definisi kita sendiri, bukan pola yang orang maksud.
+ * akan menguji definisi kita sendiri, bukan pola yang orang maksud. Double
+ * bottom dan double top masuk karena keduanya bisa ditulis sebagai angka:
+ * dua titik balik sejajar, satu leher, satu penembusan.
  */
 
 export interface Lilin {
@@ -23,7 +26,7 @@ export interface Lilin {
   volume?: number;
 }
 
-export type KelompokSinyal = "lilin" | "indikator" | "breakout";
+export type KelompokSinyal = "lilin" | "indikator" | "breakout" | "pola";
 
 export interface DefinisiSinyal {
   id: string;
@@ -35,6 +38,10 @@ export interface DefinisiSinyal {
    *  jadi alasan masuk sudah terhapus. Untuk indikator dan breakout, yang
    *  tidak punya bentuk lilin, dipakai ayunan sepuluh sesi terakhir. */
   panjangStop: number;
+  /** Stop untuk pola yang bentuknya tidak sepanjang jumlah lilin tetap.
+   *  Double bottom bisa selesai 5 atau 60 sesi setelah dasarnya, jadi
+   *  stopnya harus dicari dari bentuk polanya, bukan dari n lilin terakhir. */
+  titikStop?: (b: Lilin[], i: number) => number | null;
   keterangan: string;
   /** true di setiap indeks tempat pola ini selesai terbentuk. */
   deteksi: (b: Lilin[]) => boolean[];
@@ -208,6 +215,92 @@ function lonjakanVolume(b: Lilin[], i: number, arah: Arah): boolean {
     : merah(b[i]) && b[i].tutup < b[i - 1].tutup;
 }
 
+/* ── Pola ganda ─────────────────────────────────────────────────────────── */
+
+/** Jarak dari titik balik ke lilin yang mengonfirmasinya. Pivot baru
+ *  dianggap sah kalau lima sesi di kiri dan kanannya tidak melewatinya;
+ *  lebih kecil dari itu, setiap riak kecil jadi "titik balik". */
+const SAYAP = 5;
+const JARAK_MIN = 10;
+const JARAK_MAKS = 120;
+/** Dua kaki dianggap sama tinggi kalau selisihnya di bawah 4%, dan lehernya
+ *  harus 3% di atas kaki supaya yang dihitung pola, bukan sisi datar. */
+const BEDA_KAKI = 0.04;
+const DALAM_MIN = 0.03;
+/** Penembusan leher yang datang lebih dari 40 sesi sesudah kaki kedua
+ *  bukan lagi konfirmasi pola itu; harganya sudah punya cerita lain. */
+const TUNDA_MAKS = 40;
+
+function pivot(b: Lilin[], i: number, arah: Arah): boolean {
+  if (i < SAYAP || i + SAYAP >= b.length) return false;
+  for (let j = i - SAYAP; j <= i + SAYAP; j += 1) {
+    if (j === i) continue;
+    if (arah === "naik" ? b[j].rendah < b[i].rendah : b[j].tinggi > b[i].tinggi) return false;
+  }
+  return true;
+}
+
+export interface PolaGanda {
+  /** Indeks kaki pertama dan kedua. */
+  kaki1: number;
+  kaki2: number;
+  /** Harga leher: puncak di antara kedua kaki (atau lembah, untuk top). */
+  leher: number;
+  /** Titik ekstrem pola, tempat stop ditaruh. */
+  ekstrem: number;
+}
+
+/** Double bottom (arah naik) atau double top (arah turun) yang penembusan
+ *  lehernya terjadi tepat di lilin i.
+ *
+ *  Yang ditandai adalah penembusan leher, bukan kaki keduanya. Kaki kedua
+ *  hanya terlihat sebagai kaki setelah harga berbalik dan melewati leher;
+ *  menandai kaki itu sendiri berarti menandai keadaan yang baru diketahui
+ *  belakangan, dan uji yang dibangun di atasnya akan tampak jauh lebih
+ *  pintar daripada yang bisa dipakai sungguhan. */
+export function polaGanda(b: Lilin[], i: number, arah: Arah): PolaGanda | null {
+  if (i < JARAK_MIN + SAYAP + 1 || i >= b.length) return null;
+  const kaki: number[] = [];
+  for (let j = Math.max(SAYAP, i - JARAK_MAKS - TUNDA_MAKS); j <= i - SAYAP - 1; j += 1) {
+    if (pivot(b, j, arah)) kaki.push(j);
+  }
+  if (kaki.length < 2) return null;
+
+  const harga = (j: number) => (arah === "naik" ? b[j].rendah : b[j].tinggi);
+  // Dari belakang: pasangan kaki terakhir yang memenuhi syarat, karena itu
+  // yang lehernya baru saja ditembus.
+  for (let x = kaki.length - 1; x >= 1; x -= 1) {
+    const kaki2 = kaki[x];
+    if (i - kaki2 > TUNDA_MAKS) break;
+    for (let y = x - 1; y >= 0; y -= 1) {
+      const kaki1 = kaki[y];
+      const jarak = kaki2 - kaki1;
+      if (jarak > JARAK_MAKS) break;
+      if (jarak < JARAK_MIN) continue;
+      if (Math.abs(harga(kaki2) - harga(kaki1)) / harga(kaki1) > BEDA_KAKI) continue;
+      let leher = arah === "naik" ? -Infinity : Infinity;
+      for (let j = kaki1; j <= kaki2; j += 1) {
+        leher = arah === "naik" ? Math.max(leher, b[j].tinggi) : Math.min(leher, b[j].rendah);
+      }
+      const dasar = Math.max(harga(kaki1), harga(kaki2));
+      const puncak = Math.min(harga(kaki1), harga(kaki2));
+      const cukupDalam = arah === "naik"
+        ? leher >= dasar * (1 + DALAM_MIN)
+        : leher <= puncak * (1 - DALAM_MIN);
+      if (!cukupDalam) continue;
+      const tembus = arah === "naik"
+        ? b[i].tutup > leher && b[i - 1].tutup <= leher
+        : b[i].tutup < leher && b[i - 1].tutup >= leher;
+      if (!tembus) continue;
+      const ekstrem = arah === "naik"
+        ? Math.min(harga(kaki1), harga(kaki2))
+        : Math.max(harga(kaki1), harga(kaki2));
+      return { kaki1, kaki2, leher, ekstrem };
+    }
+  }
+  return null;
+}
+
 /* ── Daftar ─────────────────────────────────────────────────────────────── */
 
 export const DAFTAR_SINYAL: DefinisiSinyal[] = [
@@ -307,6 +400,18 @@ export const DAFTAR_SINYAL: DefinisiSinyal[] = [
     deteksi: (b) => silang((i) => (i < 252 ? null : b[i].tutup > tertinggiSebelum(b, i, 252)), b, 253),
   },
   {
+    id: "double-bottom", nama: "Double bottom", arah: "naik", kelompok: "pola", panjangStop: 1,
+    keterangan: "Dua dasar sejajar, lalu tutup menembus puncak di antaranya.",
+    titikStop: (b, i) => polaGanda(b, i, "naik")?.ekstrem ?? null,
+    deteksi: (b) => tiapIndeks(b, JARAK_MIN + SAYAP + 1, (i) => polaGanda(b, i, "naik") !== null),
+  },
+  {
+    id: "double-top", nama: "Double top", arah: "turun", kelompok: "pola", panjangStop: 1,
+    keterangan: "Dua puncak sejajar, lalu tutup menembus lembah di antaranya.",
+    titikStop: (b, i) => polaGanda(b, i, "turun")?.ekstrem ?? null,
+    deteksi: (b) => tiapIndeks(b, JARAK_MIN + SAYAP + 1, (i) => polaGanda(b, i, "turun") !== null),
+  },
+  {
     id: "volume-naik", nama: "Lonjakan volume naik", arah: "naik", kelompok: "breakout", panjangStop: 10,
     keterangan: "Volume dua kali rata-rata 20 sesi, lilin hijau menutup lebih tinggi.",
     deteksi: (b) => tiapIndeks(b, 20, (i) => lonjakanVolume(b, i, "naik")),
@@ -361,10 +466,13 @@ export function levelSinyal(
 ): LevelSinyal | null {
   if (medianHasil === null || i < 0 || i >= b.length) return null;
   const entry = b[b.length - 1].tutup;
-  const dari = Math.max(0, i - def.panjangStop + 1);
-  let stop = def.arah === "naik" ? Infinity : -Infinity;
-  for (let j = dari; j <= i; j += 1) {
-    stop = def.arah === "naik" ? Math.min(stop, b[j].rendah) : Math.max(stop, b[j].tinggi);
+  let stop = def.titikStop?.(b, i) ?? null;
+  if (stop === null) {
+    const dari = Math.max(0, i - def.panjangStop + 1);
+    stop = def.arah === "naik" ? Infinity : -Infinity;
+    for (let j = dari; j <= i; j += 1) {
+      stop = def.arah === "naik" ? Math.min(stop, b[j].rendah) : Math.max(stop, b[j].tinggi);
+    }
   }
   if (def.arah === "naik" ? !(medianHasil > 0) || !(entry > stop) : !(medianHasil < 0) || !(entry < stop)) {
     return null;
