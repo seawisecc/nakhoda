@@ -59,6 +59,13 @@ export function bulanSebelumnya(kunci: string): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+/** "2026-09" + 18 -> "2028-03" */
+export function tambahBulan(kunci: string, n: number): string {
+  const [t, b] = kunci.split("-").map(Number);
+  const d = new Date(Date.UTC(t, b - 1 + n, 1, 12));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 const NAMA_BULAN = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
   "Juli", "Agustus", "September", "Oktober", "November", "Desember",

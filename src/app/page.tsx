@@ -143,6 +143,13 @@ export default function Dasbor() {
                 target={pengaturan.targetKekayaan}
                 mataUang={dasar}
               />
+              <Link
+                href="/simulasi"
+                className="label-mikro mt-2 inline-flex items-center gap-1 text-[var(--utama-teks-faint)] transition hover:text-[var(--utama-teks)]"
+              >
+                Kapan tembus? Simulasikan
+                <ArrowUpRight size={11} />
+              </Link>
             </div>
           </div>
 

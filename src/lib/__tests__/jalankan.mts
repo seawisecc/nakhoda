@@ -5,6 +5,7 @@ process.stdout.write("\nNakhoda, tes logika hitung\n\n");
 await import("./posisi.test");
 await import("./kinerja.test");
 await import("./dividen.test");
+await import("./simulasi.test");
 await import("./trade.test");
 await import("./risiko.test");
 await import("./tinjauan.test");

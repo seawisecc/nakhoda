@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, CandlestickChart, ClipboardCheck, LayoutDashboard, Layers,
+  ArrowLeftRight, CandlestickChart, ClipboardCheck, Hourglass, LayoutDashboard, Layers,
   NotebookPen, Settings, Sparkles, Wallet, type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ export const NAV: ItemNav[] = [
   { href: "/jurnal", label: "Jurnal", labelPendek: "Jurnal", ikon: NotebookPen, utama: true },
   { href: "/saran", label: "Saran AI", labelPendek: "Saran", ikon: Sparkles },
   { href: "/chart", label: "Chart & TA", labelPendek: "Chart", ikon: CandlestickChart },
+  { href: "/simulasi", label: "Simulasi target", labelPendek: "Simulasi", ikon: Hourglass },
   { href: "/pengaturan", label: "Pengaturan", labelPendek: "Atur", ikon: Settings },
 ];
 
