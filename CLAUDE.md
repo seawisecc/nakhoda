@@ -250,18 +250,34 @@ Keadaan portofolio jangan ditebak dari berkas mana pun di repo ini. Baca dari
 Firestore: posisi diturunkan dari `transactions`, kas dan modal dari
 `capitalFlows`, harga dari `priceCache`.
 
-Transaksi diimpor dari tangkapan layar Pluang, bukan dari ekspor resmi, dan
-ada dua mutu yang berbeda di dalamnya. Impor 1 Agu 2026 berasal dari **halaman
-muka**, jadi nilai belinya pasti tapi jumlah unitnya diturunkan. Yang datang
-dari **struk order detail** punya qty pasti broker berikut dua baris fee-nya.
-Kalau Agus mengirim tangkapan layar, mintalah struk detail, bukan halaman muka.
-Setiap koreksi qty ditandai di `catatan` transaksinya.
+**Sumber terbaik adalah laporan riwayat transaksi resmi Pluang (CSV)**, bukan
+tangkapan layar: qty pasti, fee dan pajak terpisah, top up, dan dividen
+semuanya ada. Laporan terjauh yang bisa ditarik mulai 19 Sep 2025, dan riwayat
+di Firestore sekarang dimulai dari tanggal itu. Kalau Agus mau mencatat yang
+baru, mintalah CSV itu dulu; struk order detail cadangan kedua, halaman muka
+yang terakhir. Dua jebakan di CSV-nya:
 
-Modal awal Rp 7.897.545 tanggal 1 Agu 2026 adalah hasil hitung mundur, bukan
-riwayat asli. Konsekuensinya masih menggantung: **angka kas belum pernah
-dicocokkan dengan saldo asli Pluang.** Kas diturunkan dari modal dikurangi
-belanja ditambah hasil jual, jadi dia cuma sebenar hitung mundur itu. Setiap
-usulan alokasi berdiri di atasnya, dan itu harus dikatakan setiap kali.
+- Di baris BUY/SELL, `Total Amount` adalah qty × harga (bruto) dan fee di
+  luar. Di baris `DIVIDEND RECEIVED`, `Total Amount` adalah **bersih setelah
+  pajak dan dipotong ke dua desimal**. Pajak dividennya tepat 15% (treaty
+  RI-AS), jadi bruto = `Taxes / 0,15`.
+- Baris `CANCELLED` ikut tercetak. Kolom kurs di baris dividen bukan kurs,
+  melainkan nilai rupiah dividennya.
+
+Yang di Firestore sebelum 19 Sep 2025 bukan riwayat asli. KMI, ABNB, MELI, dan
+sebagian BTC dipasang sebagai beli di 19 Sep 2025 dengan nilai beli dari
+halaman muka, jadi lama hold-nya cuma batas bawah. Posisi yang dijual 15 Okt
+2025 (AAPL, MSFT, GOOG, BABA) tidak punya harga beli di mana pun, jadi hasil
+jualnya dicatat sebagai **setoran modal**, bukan trade. Mengarang harga
+belinya berarti mengarang laba.
+
+Modal awal 19 Sep 2025 masih hasil hitung mundur, dinaikkan secukupnya supaya
+kas berjalan tidak pernah negatif. Jadi **kas belum pernah dicocokkan dengan
+saldo asli Pluang**, dan setiap usulan alokasi berdiri di atasnya. Yang belum
+dimodelkan juga ikut membuatnya meleset: fee konversi IDR-USD dan transfer
+antar dompet (beberapa ribu rupiah per kejadian). Obatnya satu: saldo asli
+IDR Cash, USD Cash, dan dana kripto IDR pada satu hari, lalu modal awalnya
+dikunci ke situ.
 
 **Tarif Pluang, diturunkan dari struk asli 8 Sep 2026:**
 
@@ -276,14 +292,8 @@ usulan alokasi berdiri di atasnya, dan itu harus dikatakan setiap kali.
 - Instant Buy kripto berdenominasi **rupiah**. Masuk apa adanya dengan
   `mataUang: IDR`, jangan dikonversi manual ke dolar.
 
-**Dividen** sudah dimodelkan: koleksi `dividends`, dicatat lewat halaman Modal,
-dihitung di `src/lib/hitung/dividen.ts`. Yang tercatat baru nol baris; riwayat
-dividen KMI, NVDA, dan MSFT masih perlu dimasukkan dari struk, termasuk MSFT
-$0,17 pada 11 Sep 2026. Angka kotor dan pajaknya harus datang dari struk, bukan
-dari perkiraan: withholding dividen AS berbeda-beda dan menebaknya berarti
-setiap angka kas di bawahnya ikut meleset. Kalau satu ticker sudah punya
-catatan tapi sepi lebih dari 120 hari, halaman Modal menandainya sendiri.
-
-**Celah yang belum ditutup:** laba realisasi penjualan GE 8 Jun 2026 belum
-tercatat karena harga belinya tidak diketahui, jadi siklusnya ditandai
-`basisTidakLengkap` dan tidak ikut win rate.
+**Dividen** tercatat di koleksi `dividends` sejak awal laporan, dicatat lewat
+halaman Modal dan dihitung di `src/lib/hitung/dividen.ts`. Kalau satu ticker
+sudah punya catatan tapi sepi lebih dari 120 hari, halaman Modal menandainya
+sendiri. Siklus GE (beli 17 Nov 2025, jual 8 Jun 2026) sudah lengkap dari
+laporan resmi dan ikut win rate.
