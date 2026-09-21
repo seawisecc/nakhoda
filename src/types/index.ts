@@ -49,6 +49,42 @@ export interface ArusModal {
   dibuatPada: number;
 }
 
+/** Dividen tunai yang diterima dari satu posisi.
+ *
+ *  Koleksi sendiri, bukan `ArusModal` dan bukan `Transaksi`, dan keduanya
+ *  disengaja.
+ *
+ *  Bukan ArusModal karena arus modal adalah uang yang datang dari LUAR
+ *  portofolio, dan Modified Dietz memperlakukannya sebagai penyebut baru yang
+ *  menekan return. Dividen justru hasil kerja portofolio itu sendiri; kalau
+ *  dicatat sebagai setoran, tiap dividen akan menurunkan return bulanan
+ *  persis pada bulan dia membuat portofolio bertambah.
+ *
+ *  Bukan Transaksi karena dividen tidak mengubah qty dan tidak mengubah biaya
+ *  rata-rata. Menyelipkannya sebagai "jual qty 0" akan mengotori setiap siklus
+ *  posisi di trade.ts. */
+export interface Dividen {
+  id: string;
+  uid: string;
+  ticker: string;
+  jenisAset: JenisAset;
+  /** Tanggal uangnya benar-benar masuk (tanggal bayar), bukan tanggal ex-div.
+   *  Yang dipakai seluruh perhitungan kas adalah kapan uangnya ada. */
+  tanggal: string;
+  /** Jumlah sebelum potongan pajak, dalam `mataUang`. */
+  jumlahKotor: number;
+  /** Pajak yang dipotong di sumber. Dividen saham AS kena withholding, dan
+   *  besarnya berbeda tergantung status treaty, jadi angkanya diketik dari
+   *  struk dan tidak pernah diturunkan sendiri oleh app. */
+  pajak: number;
+  mataUang: MataUang;
+  /** Dividen per unit menurut emiten, kalau diketahui. Cuma untuk jejak audit;
+   *  tidak pernah dikalikan sendiri dengan qty untuk menebak totalnya. */
+  perUnit?: number;
+  catatan?: string;
+  dibuatPada: number;
+}
+
 export type StatusJurnal = "terbuka" | "tertutup" | "batal";
 export type HasilJurnal = "untung" | "rugi" | "impas";
 

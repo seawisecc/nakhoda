@@ -1,5 +1,6 @@
 import type {
   ArusModal,
+  Dividen,
   JurnalEntri,
   MataUang,
   Posisi,
@@ -7,6 +8,7 @@ import type {
   Transaksi,
 } from "@/types";
 import { konversi, type Kurs } from "./uang";
+import { dividenPeriode, dividenSampai } from "./dividen";
 import { awalBulan, hariAntara, hariIni } from "@/lib/tanggal";
 
 export interface RingkasanPortofolio {
@@ -23,7 +25,14 @@ export interface RingkasanPortofolio {
   totalSetor: number;
   totalTarik: number;
   labaBelumTerealisasi: number;
+  /** Laba dari penjualan saja. Dividen sengaja tidak dilebur ke sini: dua
+   *  sumber laba yang cara kerjanya berbeda akan mustahil dipisah lagi begitu
+   *  dijumlahkan, dan yang satu bisa dikejar sementara yang satunya cuma bisa
+   *  ditunggu. Identitasnya tetap utuh:
+   *  labaTotal = labaBelumTerealisasi + labaTerealisasi + dividen. */
   labaTerealisasi: number;
+  /** Dividen bersih sepanjang riwayat, dalam mata uang dasar. */
+  dividen: number;
   labaTotal: number;
   labaTotalPersen: number;
   alokasi: { saham: number; kripto: number; kas: number };
@@ -49,15 +58,22 @@ function arusBersihSampai(
   return { bersih: setor - tarik, setor, tarik };
 }
 
-/** Kas = modal masuk − uang dipakai beli + hasil jual bersih. */
+/** Kas = modal masuk − uang dipakai beli + hasil jual bersih + dividen bersih.
+ *
+ *  Dividen masuk di sini dan tidak di `arusBersihSampai`, dan itu pembedaan
+ *  yang memikul seluruh beban: dia menambah uang yang dipegang tanpa menambah
+ *  modal yang disetor sendiri, jadi dia muncul sebagai laba, bukan sebagai
+ *  penyebut baru yang menekan return. */
 function kasSampai(
   transaksi: readonly Transaksi[],
   arus: readonly ArusModal[],
+  dividen: readonly Dividen[],
   sampai: string | null,
   dasar: MataUang,
   kurs: Kurs,
 ): number {
   let kas = arusBersihSampai(arus, sampai, dasar, kurs).bersih;
+  kas += dividenSampai(dividen, sampai, dasar, kurs);
   for (const t of transaksi) {
     if (sampai && t.tanggal > sampai) continue;
     const nilai = konversi(Math.abs(t.qty) * t.harga, t.mataUang, dasar, kurs);
@@ -71,6 +87,7 @@ export function ringkasPortofolio(
   posisi: readonly Posisi[],
   transaksi: readonly Transaksi[],
   arus: readonly ArusModal[],
+  dividen: readonly Dividen[],
   dasar: MataUang,
   kurs: Kurs,
 ): RingkasanPortofolio {
@@ -91,8 +108,9 @@ export function ringkasPortofolio(
     alokasi[p.jenisAset === "kripto" ? "kripto" : "saham"] += nilai;
   }
 
-  const kas = kasSampai(transaksi, arus, null, dasar, kurs);
+  const kas = kasSampai(transaksi, arus, dividen, null, dasar, kurs);
   alokasi.kas = Math.max(0, kas);
+  const totalDividen = dividenSampai(dividen, null, dasar, kurs);
 
   const { bersih: modalBersih, setor, tarik } = arusBersihSampai(arus, null, dasar, kurs);
   const totalNilai = nilaiPosisi + kas;
@@ -108,6 +126,7 @@ export function ringkasPortofolio(
     totalTarik: tarik,
     labaBelumTerealisasi: labaBelum,
     labaTerealisasi,
+    dividen: totalDividen,
     labaTotal,
     labaTotalPersen: modalBersih > 0 ? (labaTotal / modalBersih) * 100 : 0,
     alokasi,
@@ -118,7 +137,11 @@ export function ringkasPortofolio(
 /** Nilai buku portofolio pada suatu tanggal.
  *
  *  Identitas yang dipakai: kas + biaya perolehan posisi = arus modal bersih +
- *  laba terealisasi. Ruas kanan hanya butuh riwayat transaksi, tidak butuh
+ *  laba terealisasi + dividen bersih. Dividen harus ada di ruas kanan, kalau
+ *  tidak BMV akan lebih kecil dari kas yang sebenarnya dipegang, dan Dietz
+ *  akan membaca selisihnya sebagai return yang dihasilkan bulan ini padahal
+ *  uang itu sudah masuk berbulan-bulan sebelumnya. Ruas kanan hanya butuh
+ *  riwayat transaksi dan catatan dividen, tidak butuh
  *  harga pasar historis, jadi bisa dihitung untuk tanggal kapan pun.
  *  Ini dipakai sebagai BMV cadangan ketika belum ada snapshot. Angkanya
  *  meremehkan portofolio yang sedang untung, karena posisi dinilai sebesar
@@ -127,6 +150,7 @@ export function ringkasPortofolio(
 export function nilaiBukuPada(
   transaksi: readonly Transaksi[],
   arus: readonly ArusModal[],
+  dividen: readonly Dividen[],
   tanggal: string,
   dasar: MataUang,
   kurs: Kurs,
@@ -134,7 +158,11 @@ export function nilaiBukuPada(
   const realisasi = realisasiTiapJual(transaksi, dasar, kurs)
     .filter((r) => r.tanggal <= tanggal)
     .reduce((s, r) => s + r.jumlah, 0);
-  return arusBersihSampai(arus, tanggal, dasar, kurs).bersih + realisasi;
+  return (
+    arusBersihSampai(arus, tanggal, dasar, kurs).bersih +
+    realisasi +
+    dividenSampai(dividen, tanggal, dasar, kurs)
+  );
 }
 
 export interface Realisasi {
@@ -189,8 +217,15 @@ export function realisasiTiapJual(
 export interface RealisasiPeriode {
   mulai: string;
   akhir: string;
-  /** Uang hasil penjualan dikurangi biaya perolehannya, dalam mata uang dasar. */
+  /** Laba yang sudah terkunci di periode ini: penjualan + dividen. */
   realisasi: number;
+  /** Bagian yang datang dari penjualan saja. */
+  realisasiJual: number;
+  /** Bagian yang datang dari dividen. Dipisah karena dividen tidak menuntut
+   *  keputusan apa pun: bulan tanpa penjualan yang targetnya tercapai berkat
+   *  dividen adalah cerita yang sangat berbeda dari bulan yang targetnya
+   *  tercapai karena menjual di harga yang benar. */
+  dividen: number;
   /** Penyebut target: setoran dikurangi penarikan sampai akhir periode. */
   modal: number;
   /** Realisasi sebagai persen dari modal. null kalau belum ada modal masuk. */
@@ -200,6 +235,7 @@ export interface RealisasiPeriode {
   targetMin: number;
   targetMax: number;
   jumlahJual: number;
+  jumlahDividen: number;
   status: "kosong" | "rugi" | "belum" | "tercapai" | "lampaui";
 }
 
@@ -207,9 +243,14 @@ export interface RealisasiPeriode {
  *
  *  Ini pelengkap Modified Dietz, bukan penggantinya, dan keduanya memang akan
  *  berbeda. Dietz mengukur kinerja seluruh modal termasuk posisi yang masih
- *  mengambang; angka di sini hanya menghitung yang sudah dikunci lewat
- *  penjualan. Portofolio bisa naik 8% menurut Dietz sementara realisasinya nol
- *  karena belum ada yang dijual, dan itu bukan kontradiksi.
+ *  mengambang; angka di sini hanya menghitung yang sudah dikunci, yaitu hasil
+ *  penjualan dan dividen yang uangnya sudah mendarat. Portofolio bisa naik 8%
+ *  menurut Dietz sementara realisasinya nol karena belum ada yang dijual, dan
+ *  itu bukan kontradiksi.
+ *
+ *  Dividen ikut karena uangnya sama terkuncinya dengan hasil penjualan, tapi
+ *  dilaporkan terpisah di `dividen` supaya bulan yang targetnya tercapai tanpa
+ *  satu pun penjualan tidak terbaca sebagai hasil keputusan.
  *
  *  Penyebutnya modal bersih, yaitu uang yang benar-benar disetor sendiri.
  *  Bukan nilai portofolio, supaya target tidak ikut bergerak setiap kali harga
@@ -217,6 +258,7 @@ export interface RealisasiPeriode {
 export function realisasiPeriode(opsi: {
   transaksi: readonly Transaksi[];
   arus: readonly ArusModal[];
+  dividen: readonly Dividen[];
   mulai: string;
   akhir: string;
   targetMinPersen: number;
@@ -224,12 +266,17 @@ export function realisasiPeriode(opsi: {
   dasar: MataUang;
   kurs: Kurs;
 }): RealisasiPeriode {
-  const { transaksi, arus, mulai, akhir, dasar, kurs } = opsi;
+  const { transaksi, arus, dividen, mulai, akhir, dasar, kurs } = opsi;
 
   const dalam = realisasiTiapJual(transaksi, dasar, kurs).filter(
     (r) => r.tanggal >= mulai && r.tanggal <= akhir,
   );
-  const realisasi = dalam.reduce((s, r) => s + r.jumlah, 0);
+  const realisasiJual = dalam.reduce((s, r) => s + r.jumlah, 0);
+  const div = dividenPeriode(dividen, mulai, akhir, dasar, kurs);
+  const realisasi = realisasiJual + div.jumlah;
+  // Penyebutnya tetap modal bersih, yaitu setoran dikurangi penarikan. Dividen
+  // sengaja tidak ikut ke sini: kalau dia menambah penyebut, tiap dividen akan
+  // langsung menaikkan target rupiah yang harus dikejar bulan itu juga.
   const modal = arusBersihSampai(arus, akhir, dasar, kurs).bersih;
 
   const persen = modal > 0 ? (realisasi / modal) * 100 : null;
@@ -247,11 +294,14 @@ export function realisasiPeriode(opsi: {
     mulai,
     akhir,
     realisasi,
+    realisasiJual,
+    dividen: div.jumlah,
     modal,
     persen,
     targetMin: (modal * min) / 100,
     targetMax: (modal * maks) / 100,
     jumlahJual: dalam.length,
+    jumlahDividen: div.banyak,
     status,
   };
 }
@@ -260,6 +310,7 @@ export function realisasiPeriode(opsi: {
 export function realisasiBulanBerjalan(opsi: {
   transaksi: readonly Transaksi[];
   arus: readonly ArusModal[];
+  dividen: readonly Dividen[];
   targetMinPersen: number;
   targetMaksPersen: number;
   dasar: MataUang;
@@ -348,12 +399,13 @@ export function returnBulanBerjalan(opsi: {
   totalNilai: number;
   transaksi: readonly Transaksi[];
   arus: readonly ArusModal[];
+  dividen: readonly Dividen[];
   snapshot: readonly Snapshot[];
   dasar: MataUang;
   kurs: Kurs;
   tanggal?: string;
 }): HasilDietz {
-  const { totalNilai, transaksi, arus, snapshot, dasar, kurs } = opsi;
+  const { totalNilai, transaksi, arus, dividen, snapshot, dasar, kurs } = opsi;
   const kini = opsi.tanggal ?? hariIni();
   const mulai = awalBulan(kini);
 
@@ -366,8 +418,12 @@ export function returnBulanBerjalan(opsi: {
 
   const bmv = kandidat
     ? konversi(kandidat.nilaiTotal, kandidat.mataUang, dasar, kurs)
-    : nilaiBukuPada(transaksi, arus, mulai, dasar, kurs);
+    : nilaiBukuPada(transaksi, arus, dividen, mulai, dasar, kurs);
 
+  // Dividen sengaja TIDAK ikut ke daftar arus. Arus di Modified Dietz adalah
+  // uang yang menyeberangi batas portofolio; dividen lahir di dalamnya. Kalau
+  // dia dimasukkan di sini, dia akan dikurangkan dari pembilang dan justru
+  // menghapus dirinya sendiri dari return.
   const arusPeriode = arus.map((a) => ({
     tanggal: a.tanggal,
     jumlah:

@@ -149,11 +149,12 @@ export default function Dasbor() {
           {/* Rincian sebagai jala hairline yang membentang penuh ke tepi
               papan, bukan sebagai tiga kolom mengambang di dalam padding.
               Ini yang membuat papannya terbaca sebagai alat ukur bersusun. */}
-          <div className="jala grid-cols-1 border-x-0 border-b-0 sm:grid-cols-3">
+          <div className="jala grid-cols-1 border-x-0 border-b-0 sm:grid-cols-2 lg:grid-cols-4">
             {([
               ["Nilai posisi", ringkasan.nilaiPosisi],
               ["Kas", ringkasan.kas],
               ["Sudah terealisasi", ringkasan.labaTerealisasi],
+              ["Dividen", ringkasan.dividen],
             ] as const).map(([label, nilai]) => (
               <div
                 key={label}
@@ -283,6 +284,22 @@ export default function Dasbor() {
                     })
               }
             />
+            {/* Rinciannya ditampilkan hanya kalau dividennya ada. Baris
+                "dari dividen: Rp 0" di bulan tanpa dividen cuma menambah
+                angka nol yang harus dibaca setiap kali. */}
+            {realisasiBulan.dividen !== 0 ? (
+              <>
+                <Baris
+                  label="Dari penjualan"
+                  nilai={formatUang(realisasiBulan.realisasiJual, dasar, { ringkas: true })}
+                />
+                <Baris
+                  label="Dari dividen"
+                  nilai={formatUang(realisasiBulan.dividen, dasar, { ringkas: true })}
+                  petunjuk="Dividen ikut karena uangnya sama terkuncinya dengan hasil penjualan, tapi dipisah supaya bulan yang targetnya tercapai tanpa satu pun penjualan tidak terbaca sebagai hasil keputusan."
+                />
+              </>
+            ) : null}
             <Baris label="Penjualan bulan ini" nilai={realisasiBulan.jumlahJual} />
           </div>
         </div>
@@ -308,7 +325,7 @@ export default function Dasbor() {
               {formatUang(ringkasan.labaTerealisasi, dasar, { ringkas: true })}
             </span>
           }
-          sub="dari yang sudah dijual, sejak awal"
+          sub="dari yang sudah dijual, di luar dividen"
         />
         <Ubin
           label="Kas menganggur"

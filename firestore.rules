@@ -50,6 +50,15 @@ service cloud.firestore {
       allow update: if pemilikTetap();
     }
 
+    // Dividen tunai. Koleksi sendiri, bukan capitalFlows: dividen adalah hasil
+    // portofolio, bukan setoran dari luar, dan mencampurnya akan menekan
+    // return bulanan persis di bulan dia masuk.
+    match /dividends/{id} {
+      allow read, delete: if miliknya();
+      allow create: if akanJadiMiliknya();
+      allow update: if pemilikTetap();
+    }
+
     match /journalEntries/{id} {
       allow read, delete: if miliknya();
       allow create: if akanJadiMiliknya();

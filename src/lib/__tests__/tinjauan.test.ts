@@ -27,7 +27,8 @@ function dasar(x: Partial<InputTinjauan> = {}): InputTinjauan {
     ringkasan: {
       mataUang: "IDR", nilaiPosisi: 0, kas: 0, totalNilai: 10_000_000,
       modalBersih: 10_000_000, totalSetor: 10_000_000, totalTarik: 0,
-      labaBelumTerealisasi: 0, labaTerealisasi: 0, labaTotal: 0, labaTotalPersen: 0,
+      labaBelumTerealisasi: 0, labaTerealisasi: 0, dividen: 0, labaTotal: 0,
+      labaTotalPersen: 0,
       alokasi: { saham: 0, kripto: 0, kas: 0 }, posisiTanpaHarga: 0,
     },
     dietz: {

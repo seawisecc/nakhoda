@@ -9,6 +9,7 @@ import {
   realisasiBulanBerjalan, returnBulanBerjalan, ringkasPortofolio, statistikJurnal,
 } from "@/lib/hitung/kinerja";
 import { bangunTrade, statistikTrade, usulkanPenutupan } from "@/lib/hitung/trade";
+import { dividenPerTicker, dividenTerlewat, hasilAtasBiaya } from "@/lib/hitung/dividen";
 import { KURS_CADANGAN, type Kurs } from "@/lib/hitung/uang";
 import { hariIni } from "@/lib/tanggal";
 
@@ -20,8 +21,8 @@ const UMUR_HARGA_MS = 15 * 60 * 1000;
 export function usePortofolio() {
   const data = useData();
   const {
-    transaksi, arusModal, jurnal, snapshot, hargaCache, kursCache, pengaturan,
-    simpan, siap, pengguna,
+    transaksi, arusModal, dividen, jurnal, snapshot, hargaCache, kursCache,
+    pengaturan, simpan, siap, pengguna,
   } = data;
 
   const kurs: Kurs = useMemo(() => {
@@ -55,18 +56,21 @@ export function usePortofolio() {
   const posisiAktif = useMemo(() => posisi.filter((p) => p.qty > 0), [posisi]);
 
   const ringkasan = useMemo(
-    () => ringkasPortofolio(posisi, transaksi, arusModal, pengaturan.mataUangDasar, kurs),
-    [posisi, transaksi, arusModal, pengaturan.mataUangDasar, kurs],
+    () => ringkasPortofolio(posisi, transaksi, arusModal, dividen, pengaturan.mataUangDasar, kurs),
+    [posisi, transaksi, arusModal, dividen, pengaturan.mataUangDasar, kurs],
   );
 
   const dietz = useMemo(
     () =>
       returnBulanBerjalan({
         totalNilai: ringkasan.totalNilai,
-        transaksi, arus: arusModal, snapshot,
+        transaksi, arus: arusModal, dividen, snapshot,
         dasar: pengaturan.mataUangDasar, kurs,
       }),
-    [ringkasan.totalNilai, transaksi, arusModal, snapshot, pengaturan.mataUangDasar, kurs],
+    [
+      ringkasan.totalNilai, transaksi, arusModal, dividen, snapshot,
+      pengaturan.mataUangDasar, kurs,
+    ],
   );
 
   const statistik = useMemo(() => statistikJurnal(jurnal), [jurnal]);
@@ -91,15 +95,35 @@ export function usePortofolio() {
       realisasiBulanBerjalan({
         transaksi,
         arus: arusModal,
+        dividen,
         targetMinPersen: pengaturan.targetBulananMin,
         targetMaksPersen: pengaturan.targetBulananMax,
         dasar: pengaturan.mataUangDasar,
         kurs,
       }),
     [
-      transaksi, arusModal, pengaturan.targetBulananMin,
+      transaksi, arusModal, dividen, pengaturan.targetBulananMin,
       pengaturan.targetBulananMax, pengaturan.mataUangDasar, kurs,
     ],
+  );
+
+  // Tanggal acuan dibekukan sekali per render supaya jendela 12 bulan dan
+  // deteksi dividen terlewat memakai hari yang sama.
+  const kini = hariIni();
+
+  const rekapDividen = useMemo(
+    () => dividenPerTicker(dividen, pengaturan.mataUangDasar, kurs, kini),
+    [dividen, pengaturan.mataUangDasar, kurs, kini],
+  );
+
+  const hasilDividen = useMemo(
+    () => hasilAtasBiaya(posisiAktif, dividen, pengaturan.mataUangDasar, kurs, kini),
+    [posisiAktif, dividen, pengaturan.mataUangDasar, kurs, kini],
+  );
+
+  const dividenSepi = useMemo(
+    () => dividenTerlewat(posisiAktif, dividen, kini),
+    [posisiAktif, dividen, kini],
   );
 
   const hargaTertua = useMemo(() => {
@@ -203,6 +227,9 @@ export function usePortofolio() {
     kinerjaTrade,
     usulanTutup,
     realisasiBulan,
+    rekapDividen,
+    hasilDividen,
+    dividenSepi,
     hargaTertua,
     menyegarkan,
     pesanSegar,

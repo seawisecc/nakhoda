@@ -1,7 +1,7 @@
 "use client";
 
 import type {
-  ArusModal, JurnalEntri, Pengaturan, Saran, Snapshot, Transaksi,
+  ArusModal, Dividen, JurnalEntri, Pengaturan, Saran, Snapshot, Transaksi,
 } from "@/types";
 import { hariIni } from "@/lib/tanggal";
 
@@ -11,6 +11,7 @@ export interface BerkasCadangan {
   dibuatPada: string;
   transaksi: Transaksi[];
   arusModal: ArusModal[];
+  dividen: Dividen[];
   jurnal: JurnalEntri[];
   saran: Saran[];
   snapshot: Snapshot[];
@@ -85,6 +86,10 @@ export function bacaCadangan(teks: string): BerkasCadangan {
     dibuatPada: isi.dibuatPada ?? "",
     transaksi: larik<Transaksi>(isi.transaksi),
     arusModal: larik<ArusModal>(isi.arusModal),
+    // Cadangan versi 1 yang dibuat sebelum dividen ada tidak punya kunci ini.
+    // `larik` mengembalikan [] untuk yang hilang, jadi berkas lama tetap
+    // terbaca tanpa perlu menaikkan nomor versi.
+    dividen: larik<Dividen>(isi.dividen),
     jurnal: larik<JurnalEntri>(isi.jurnal),
     saran: larik<Saran>(isi.saran),
     snapshot: larik<Snapshot>(isi.snapshot),

@@ -4,7 +4,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useState,
 } from "react";
 import type {
-  ArusModal, HargaCache, JurnalEntri, KursCache, ModeData, Pengaturan,
+  ArusModal, Dividen, HargaCache, JurnalEntri, KursCache, ModeData, Pengaturan,
   Alokasi, Saran, Snapshot, Transaksi,
 } from "@/types";
 import {
@@ -41,6 +41,7 @@ interface IsiData {
 
   transaksi: Transaksi[];
   arusModal: ArusModal[];
+  dividen: Dividen[];
   jurnal: JurnalEntri[];
   saran: Saran[];
   alokasi: Alokasi[];
@@ -69,7 +70,7 @@ export function buatId(): string {
 type PetaDokumen = Record<KoleksiDokumen, { id: string }[]>;
 
 const KOSONG_FIRESTORE: PetaDokumen = {
-  transaksi: [], arusModal: [], jurnal: [], saran: [], alokasi: [],
+  transaksi: [], arusModal: [], dividen: [], jurnal: [], saran: [], alokasi: [],
   snapshot: [], hargaCache: [], kursCache: [],
 };
 
@@ -91,6 +92,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
 
   const transaksiLokal = useKoleksiLokal<Transaksi>("transaksi", lokal);
   const arusLokal = useKoleksiLokal<ArusModal>("arusModal", lokal);
+  const dividenLokal = useKoleksiLokal<Dividen>("dividen", lokal);
   const jurnalLokal = useKoleksiLokal<JurnalEntri>("jurnal", lokal);
   const saranLokal = useKoleksiLokal<Saran>("saran", lokal);
   const alokasiLokal = useKoleksiLokal<Alokasi>("alokasi", lokal);
@@ -286,7 +288,8 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
   const nilai = useMemo<IsiData>(() => {
     const dok: PetaDokumen = lokal
       ? {
-          transaksi: transaksiLokal, arusModal: arusLokal, jurnal: jurnalLokal,
+          transaksi: transaksiLokal, arusModal: arusLokal, dividen: dividenLokal,
+          jurnal: jurnalLokal,
           saran: saranLokal, alokasi: alokasiLokal, snapshot: snapshotLokal,
           hargaCache: hargaLokal,
           kursCache: kursLokal,
@@ -305,6 +308,7 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
       galatAuth,
       transaksi: dok.transaksi as Transaksi[],
       arusModal: dok.arusModal as ArusModal[],
+      dividen: dok.dividen as Dividen[],
       jurnal: dok.jurnal as JurnalEntri[],
       saran: dok.saran as Saran[],
       alokasi: dok.alokasi as Alokasi[],
@@ -316,7 +320,8 @@ export function PenyediaData({ children }: { children: React.ReactNode }) {
     };
   }, [
     mode, lokal, siapAuth, siapFirestore, pengguna, galatAuth, dariFirestore,
-    transaksiLokal, arusLokal, jurnalLokal, saranLokal, alokasiLokal, snapshotLokal,
+    transaksiLokal, arusLokal, dividenLokal, jurnalLokal, saranLokal, alokasiLokal,
+    snapshotLokal,
     hargaLokal, kursLokal, pengaturan, masuk, keluar, simpan, hapus,
     simpanPengaturan, bersihkanSemua,
   ]);

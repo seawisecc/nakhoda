@@ -152,10 +152,25 @@ dengan alasannya masing-masing; yang di bawah ini ringkasannya.
   hanya muncul untuk tanda yang lolos koreksi, searah klaimnya, dan R:R
   minimal 1,5. Jangan melonggarkannya supaya layar terlihat lebih berguna;
   "tidak ada yang perlu dilakukan" adalah keluaran yang benar dan sering.
+- **Dividen bukan arus modal, dan tidak boleh dicatat sebagai setoran.**
+  Koleksinya sendiri (`dividends`), bukan `capitalFlows`. Arus modal adalah
+  uang dari luar portofolio dan Modified Dietz memperlakukannya sebagai
+  penyebut baru; dividen adalah hasil portofolio itu sendiri. Kalau dicampur,
+  tiap dividen menekan return bulanan persis di bulan dia membuat portofolio
+  bertambah. Dia masuk ke kas lewat `kasSampai()` dan ke `nilaiBukuPada()`,
+  tapi **tidak pernah** masuk ke daftar arus `modifiedDietz()`. Dividen juga
+  bukan transaksi: dia tidak mengubah qty dan tidak mengubah biaya rata-rata,
+  jadi menyelipkannya sebagai "jual qty 0" akan mengotori siklus posisi di
+  `trade.ts`. Pajaknya diketik dari struk, tidak pernah diturunkan sendiri.
+  Identitas yang dijaga tes:
+  `labaTotal = labaBelumTerealisasi + labaTerealisasi + dividen`.
 - **Realisasi bulanan bukan pengganti Modified Dietz.** `realisasiPeriode()`
-  cuma menghitung yang sudah dikunci lewat penjualan, diukur terhadap modal
-  bersih supaya targetnya tidak ikut bergerak setiap kali harga pasar bergerak.
-  Keduanya memang akan berbeda, dan itu bukan kontradiksi.
+  cuma menghitung yang sudah dikunci, yaitu penjualan dan dividen yang uangnya
+  sudah mendarat, diukur terhadap modal bersih supaya targetnya tidak ikut
+  bergerak setiap kali harga pasar bergerak. Dividen dilaporkan terpisah di
+  `realisasiJual` dan `dividen` supaya bulan yang targetnya tercapai tanpa satu
+  pun penjualan tidak terbaca sebagai hasil keputusan. Dietz dan realisasi
+  memang akan berbeda, dan itu bukan kontradiksi.
 
 ## Struktur
 
@@ -165,10 +180,12 @@ src/app/            Halaman App Router + route API (harga, kurs, ohlc, riwayat,
 src/app/fonts/      Doto (dot-matrix) di-host sendiri, dipakai .angka-sorot
 src/components/ui/  Kit dasar: kartu, tombol, isian, tabel, grafik, panel
 src/components/shell/   Rel samping, bilah atas, bilah bawah, layar masuk
-src/components/formulir/  Form transaksi, modal, jurnal, kalkulator, tempel saran
-src/lib/hitung/     Logika murni: posisi, trade, kinerja, risiko, tinjauan,
-                    level, biaya, tonggak, astro (aspek planet), sinyal (pola
-                    lilin, indikator, double bottom, garis tren, level),
+src/components/formulir/  Form transaksi, modal, dividen, jurnal, kalkulator,
+                    tempel saran
+src/lib/hitung/     Logika murni: posisi, trade, kinerja, dividen, risiko,
+                    tinjauan, level, biaya, tonggak, astro (aspek planet),
+                    sinyal (pola lilin, indikator, double bottom, garis tren,
+                    level),
                     bentuk (gambar pola yang sedang berlangsung),
                     uji-kejadian (uji semuanya)
 src/lib/data/       Penyedia data, adaptor lokal dan Firestore, ekspor, contoh
@@ -259,8 +276,14 @@ usulan alokasi berdiri di atasnya, dan itu harus dikatakan setiap kali.
 - Instant Buy kripto berdenominasi **rupiah**. Masuk apa adanya dengan
   `mataUang: IDR`, jangan dikonversi manual ke dolar.
 
-**Celah yang belum ditutup:** dividen belum dimodelkan (Agus rutin menerimanya
-dari KMI, NVDA, MSFT; yang terakhir terlihat MSFT $0,17 pada 11 Sep 2026 dan
-belum tercatat di mana pun), dan laba realisasi penjualan GE 8 Jun 2026 belum
+**Dividen** sudah dimodelkan: koleksi `dividends`, dicatat lewat halaman Modal,
+dihitung di `src/lib/hitung/dividen.ts`. Yang tercatat baru nol baris; riwayat
+dividen KMI, NVDA, dan MSFT masih perlu dimasukkan dari struk, termasuk MSFT
+$0,17 pada 11 Sep 2026. Angka kotor dan pajaknya harus datang dari struk, bukan
+dari perkiraan: withholding dividen AS berbeda-beda dan menebaknya berarti
+setiap angka kas di bawahnya ikut meleset. Kalau satu ticker sudah punya
+catatan tapi sepi lebih dari 120 hari, halaman Modal menandainya sendiri.
+
+**Celah yang belum ditutup:** laba realisasi penjualan GE 8 Jun 2026 belum
 tercatat karena harga belinya tidak diketahui, jadi siklusnya ditandai
 `basisTidakLengkap` dan tidak ikut win rate.

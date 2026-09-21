@@ -19,7 +19,7 @@ import { KakiPanel, Panel } from "@/components/ui/panel";
 export default function HalamanPengaturan() {
   const {
     mode, pengguna, pengaturan, simpanPengaturan, simpan, bersihkanSemua,
-    transaksi, arusModal, jurnal, saran, snapshot,
+    transaksi, arusModal, dividen, jurnal, saran, snapshot,
   } = useData();
   const { kurs } = usePortofolio();
 
@@ -36,7 +36,8 @@ export default function HalamanPengaturan() {
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
   const berkas = useRef<HTMLInputElement>(null);
 
-  const adaData = transaksi.length + arusModal.length + jurnal.length + saran.length > 0;
+  const adaData =
+    transaksi.length + arusModal.length + dividen.length + jurnal.length + saran.length > 0;
 
   async function simpanTarget() {
     const min = bacaAngka(targetMin);
@@ -76,6 +77,7 @@ export default function HalamanPengaturan() {
     const isi = dataContoh(pengguna?.uid ?? "lokal");
     for (const t of isi.transaksi) await simpan("transaksi", t);
     for (const a of isi.arusModal) await simpan("arusModal", a);
+    for (const d of isi.dividen) await simpan("dividen", d);
     for (const j of isi.jurnal) await simpan("jurnal", j);
     for (const s of isi.saran) await simpan("saran", s);
     for (const s of isi.snapshot) await simpan("snapshot", s);
@@ -90,13 +92,15 @@ export default function HalamanPengaturan() {
       const uid = pengguna?.uid ?? "lokal";
       for (const t of isi.transaksi) await simpan("transaksi", { ...t, uid });
       for (const a of isi.arusModal) await simpan("arusModal", { ...a, uid });
+      for (const d of isi.dividen) await simpan("dividen", { ...d, uid });
       for (const j of isi.jurnal) await simpan("jurnal", { ...j, uid });
       for (const s of isi.saran) await simpan("saran", { ...s, uid });
       for (const s of isi.snapshot) await simpan("snapshot", { ...s, uid });
       if (isi.pengaturan) await simpanPengaturan({ ...isi.pengaturan, uid });
       setPesan(
         `Impor selesai: ${isi.transaksi.length} transaksi, ${isi.arusModal.length} arus modal, ` +
-          `${isi.jurnal.length} entri jurnal. Baris dengan id yang sama ditimpa, bukan digandakan.`,
+          `${isi.dividen.length} dividen, ${isi.jurnal.length} entri jurnal. ` +
+          "Baris dengan id yang sama ditimpa, bukan digandakan.",
       );
     } catch (err) {
       setPesan(`Gagal mengimpor: ${(err as Error).message}`);
@@ -293,7 +297,9 @@ export default function HalamanPengaturan() {
         <div className="mt-4 flex flex-wrap gap-2">
           <Tombol
             onClick={() =>
-              unduhCadangan({ transaksi, arusModal, jurnal, saran, snapshot, pengaturan })
+              unduhCadangan({
+                transaksi, arusModal, dividen, jurnal, saran, snapshot, pengaturan,
+              })
             }
             disabled={!adaData}
           >

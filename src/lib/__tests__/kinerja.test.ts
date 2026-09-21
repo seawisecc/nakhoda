@@ -10,7 +10,7 @@ import {
   statistikJurnal,
 } from "@/lib/hitung/kinerja";
 import { bangunPosisi, nilaiPosisi } from "@/lib/hitung/posisi";
-import type { ArusModal, JurnalEntri, Transaksi } from "@/types";
+import type { ArusModal, Dividen, JurnalEntri, Transaksi } from "@/types";
 import { grup, uji, mendekati, samaDengan, benar } from "./uji";
 
 const kurs = { usdIdr: 16_000 };
@@ -27,6 +27,13 @@ function arus(p: Partial<ArusModal>): ArusModal {
   return {
     id: `a${++n}`, uid: "u", tanggal: "2026-09-01", jumlah: 1000,
     mataUang: "IDR", tipe: "setor", dibuatPada: n, ...p,
+  };
+}
+function div(p: Partial<Dividen>): Dividen {
+  return {
+    id: `d${++n}`, uid: "u", ticker: "NVDA", jenisAset: "saham",
+    tanggal: "2026-09-01", jumlahKotor: 100, pajak: 0, mataUang: "IDR",
+    dibuatPada: n, ...p,
   };
 }
 function jrn(p: Partial<JurnalEntri>): JurnalEntri {
@@ -121,7 +128,7 @@ grup("modifiedDietz", () => {
 
 grup("nilaiBukuPada", () => {
   uji("sebelum ada transaksi, nilai buku sama dengan modal yang sudah masuk", () => {
-    const v = nilaiBukuPada([], [arus({ jumlah: 5000, tanggal: "2026-08-01" })],
+    const v = nilaiBukuPada([], [arus({ jumlah: 5000, tanggal: "2026-08-01" })], [],
       "2026-09-01", "IDR", kurs);
     mendekati(v, 5000);
   });
@@ -130,6 +137,7 @@ grup("nilaiBukuPada", () => {
     const v = nilaiBukuPada(
       [tx({ qty: 10, harga: 100, tanggal: "2026-08-10" })],
       [arus({ jumlah: 5000, tanggal: "2026-08-01" })],
+      [],
       "2026-09-01", "IDR", kurs,
     );
     mendekati(v, 5000);
@@ -142,6 +150,7 @@ grup("nilaiBukuPada", () => {
         tx({ qty: 10, harga: 120, sisi: "jual", tanggal: "2026-08-20" }),
       ],
       [arus({ jumlah: 5000, tanggal: "2026-08-01" })],
+      [],
       "2026-09-01", "IDR", kurs,
     );
     mendekati(v, 5200);
@@ -151,6 +160,7 @@ grup("nilaiBukuPada", () => {
     const v = nilaiBukuPada(
       [tx({ qty: 10, harga: 100, sisi: "jual", tanggal: "2026-09-20" })],
       [arus({ jumlah: 5000, tanggal: "2026-08-01" })],
+      [],
       "2026-09-01", "IDR", kurs,
     );
     mendekati(v, 5000);
@@ -169,32 +179,32 @@ grup("ringkasPortofolio", () => {
   }, kurs);
 
   uji("kas adalah modal dikurangi belanja", () => {
-    const r = ringkasPortofolio(posisi, transaksi, modal, "IDR", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, modal, [], "IDR", kurs);
     mendekati(r.kas, 10_000 - 1000 - 2000);
   });
 
   uji("total nilai adalah kas ditambah nilai pasar posisi", () => {
-    const r = ringkasPortofolio(posisi, transaksi, modal, "IDR", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, modal, [], "IDR", kurs);
     mendekati(r.nilaiPosisi, 1300 + 2400);
     mendekati(r.totalNilai, 7000 + 3700);
   });
 
   uji("laba total adalah total nilai dikurangi modal bersih", () => {
-    const r = ringkasPortofolio(posisi, transaksi, modal, "IDR", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, modal, [], "IDR", kurs);
     mendekati(r.labaTotal, 700);
     mendekati(r.labaTotalPersen, 7);
   });
 
   uji("penarikan mengurangi modal bersih dan kas", () => {
     const dgnTarik = [...modal, arus({ jumlah: 1000, tipe: "tarik", tanggal: "2026-09-10" })];
-    const r = ringkasPortofolio(posisi, transaksi, dgnTarik, "IDR", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, dgnTarik, [], "IDR", kurs);
     mendekati(r.modalBersih, 9000);
     mendekati(r.kas, 6000);
     mendekati(r.labaTotal, 700);
   });
 
   uji("alokasi dipecah per kelas aset", () => {
-    const r = ringkasPortofolio(posisi, transaksi, modal, "IDR", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, modal, [], "IDR", kurs);
     mendekati(r.alokasi.saham, 1300);
     mendekati(r.alokasi.kripto, 2400);
     mendekati(r.alokasi.kas, 7000);
@@ -204,13 +214,13 @@ grup("ringkasPortofolio", () => {
     const tanpaHarga = nilaiPosisi(bangunPosisi(transaksi, kurs), {
       NVDA: { harga: 130, mataUang: "IDR", diperbaruiPada: 1 },
     }, kurs);
-    const r = ringkasPortofolio(tanpaHarga, transaksi, modal, "IDR", kurs);
+    const r = ringkasPortofolio(tanpaHarga, transaksi, modal, [], "IDR", kurs);
     samaDengan(r.posisiTanpaHarga, 1);
     mendekati(r.nilaiPosisi, 1300 + 2000);
   });
 
   uji("mata uang dasar USD mengonversi seluruh angka", () => {
-    const r = ringkasPortofolio(posisi, transaksi, modal, "USD", kurs);
+    const r = ringkasPortofolio(posisi, transaksi, modal, [], "USD", kurs);
     mendekati(r.totalNilai, 10_700 / 16_000);
   });
 });
@@ -225,7 +235,7 @@ grup("returnBulanBerjalan", () => {
         id: "s", uid: "u", tanggal: "2026-09-01", nilaiTotal: 10_000,
         mataUang: "IDR", dibuatPada: 1,
       }],
-      dasar: "IDR", kurs, tanggal: "2026-09-20",
+      dividen: [], dasar: "IDR", kurs, tanggal: "2026-09-20",
     });
     samaDengan(h.bmvPerkiraan, false);
     mendekati(h.persen!, 10);
@@ -234,7 +244,7 @@ grup("returnBulanBerjalan", () => {
   uji("tanpa snapshot, jatuh ke nilai buku dan ditandai perkiraan", () => {
     const h = returnBulanBerjalan({
       totalNilai: 11_000, transaksi: [], arus: modal, snapshot: [],
-      dasar: "IDR", kurs, tanggal: "2026-09-20",
+      dividen: [], dasar: "IDR", kurs, tanggal: "2026-09-20",
     });
     samaDengan(h.bmvPerkiraan, true);
     mendekati(h.bmv, 10_000);
@@ -247,7 +257,7 @@ grup("returnBulanBerjalan", () => {
         id: "s", uid: "u", tanggal: "2026-06-15", nilaiTotal: 4000,
         mataUang: "IDR", dibuatPada: 1,
       }],
-      dasar: "IDR", kurs, tanggal: "2026-09-20",
+      dividen: [], dasar: "IDR", kurs, tanggal: "2026-09-20",
     });
     samaDengan(h.bmvPerkiraan, true);
   });
@@ -260,9 +270,120 @@ grup("returnBulanBerjalan", () => {
         id: "s", uid: "u", tanggal: "2026-09-01", nilaiTotal: 10_000,
         mataUang: "IDR", dibuatPada: 1,
       }],
-      dasar: "IDR", kurs, tanggal: "2026-09-20",
+      dividen: [], dasar: "IDR", kurs, tanggal: "2026-09-20",
     });
     mendekati(h.persen!, 0);
+  });
+});
+
+grup("dividen di dalam kinerja", () => {
+  const transaksi = [tx({ ticker: "KMI", qty: 10, harga: 100, tanggal: "2026-09-02" })];
+  const modal = [arus({ jumlah: 10_000, tipe: "awal", tanggal: "2026-09-01" })];
+  const posisi = nilaiPosisi(bangunPosisi(transaksi, kurs), {
+    KMI: { harga: 100, mataUang: "IDR", diperbaruiPada: 1 },
+  }, kurs);
+  const dividen = [div({ ticker: "KMI", tanggal: "2026-09-10", jumlahKotor: 500, pajak: 50 })];
+
+  uji("dividen menambah kas sebesar yang bersih", () => {
+    const r = ringkasPortofolio(posisi, transaksi, modal, dividen, "IDR", kurs);
+    mendekati(r.kas, 10_000 - 1000 + 450);
+  });
+
+  uji("dividen menaikkan laba tanpa menaikkan modal bersih", () => {
+    // Inti seluruh pemisahan dari ArusModal. Kalau dividen dicatat sebagai
+    // setor, modalBersih ikut naik 450 dan labaTotal tetap nol: uangnya
+    // bertambah tapi kinerjanya terbaca datar.
+    const r = ringkasPortofolio(posisi, transaksi, modal, dividen, "IDR", kurs);
+    mendekati(r.modalBersih, 10_000);
+    mendekati(r.labaTotal, 450);
+    mendekati(r.dividen, 450);
+  });
+
+  uji("labaTotal tetap sama dengan belum + terealisasi + dividen", () => {
+    const dgnJual = [
+      ...transaksi,
+      tx({ ticker: "KMI", qty: 5, harga: 120, sisi: "jual", tanggal: "2026-09-12" }),
+    ];
+    const psn = nilaiPosisi(bangunPosisi(dgnJual, kurs), {
+      KMI: { harga: 130, mataUang: "IDR", diperbaruiPada: 1 },
+    }, kurs);
+    const r = ringkasPortofolio(psn, dgnJual, modal, dividen, "IDR", kurs);
+    mendekati(r.labaTotal, r.labaBelumTerealisasi + r.labaTerealisasi + r.dividen, 1e-6);
+  });
+
+  uji("dividen tidak dilebur ke labaTerealisasi", () => {
+    // Dua sumber laba yang cara kerjanya berbeda; begitu dijumlahkan, tidak
+    // ada cara memisahkannya lagi.
+    const r = ringkasPortofolio(posisi, transaksi, modal, dividen, "IDR", kurs);
+    mendekati(r.labaTerealisasi, 0);
+  });
+
+  uji("nilai buku ikut naik, supaya BMV cocok dengan kas sebenarnya", () => {
+    const v = nilaiBukuPada(transaksi, modal, dividen, "2026-09-30", "IDR", kurs);
+    mendekati(v, 10_450);
+  });
+
+  uji("dividen setelah tanggal batas tidak ikut ke nilai buku", () => {
+    const v = nilaiBukuPada(transaksi, modal, dividen, "2026-09-09", "IDR", kurs);
+    mendekati(v, 10_000);
+  });
+
+  uji("dividen terbaca sebagai return, bukan sebagai setoran", () => {
+    // Uji yang menjaga bug paling halus di fitur ini: kalau dividen ikut ke
+    // daftar arus Modified Dietz, dia dikurangkan dari pembilang dan return
+    // yang dihasilkannya hilang persis sebesar dirinya sendiri.
+    const h = returnBulanBerjalan({
+      totalNilai: 10_450, transaksi: [], arus: modal, dividen,
+      snapshot: [{
+        id: "s", uid: "u", tanggal: "2026-09-01", nilaiTotal: 10_000,
+        mataUang: "IDR", dibuatPada: 1,
+      }],
+      dasar: "IDR", kurs, tanggal: "2026-09-20",
+    });
+    mendekati(h.arusBersih, 0);
+    mendekati(h.persen!, 4.5);
+  });
+
+  uji("realisasi memisahkan bagian jual dari bagian dividen", () => {
+    const r = realisasiPeriode({
+      transaksi: [
+        tx({ ticker: "KMI", qty: 10, harga: 100, tanggal: "2026-08-20" }),
+        tx({ ticker: "KMI", qty: 5, harga: 200, sisi: "jual", tanggal: "2026-09-10" }),
+      ],
+      arus: modal, dividen,
+      mulai: "2026-09-01", akhir: "2026-09-30",
+      targetMinPersen: 3, targetMaksPersen: 10, dasar: "IDR", kurs,
+    });
+    mendekati(r.realisasiJual, 500);
+    mendekati(r.dividen, 450);
+    mendekati(r.realisasi, 950);
+    samaDengan(r.jumlahJual, 1);
+    samaDengan(r.jumlahDividen, 1);
+  });
+
+  uji("dividen tidak menaikkan penyebut target", () => {
+    // Kalau dividen ikut ke modal, tiap dividen langsung menaikkan target
+    // rupiah bulan itu juga, dan targetnya lari dari yang mengejarnya.
+    const r = realisasiPeriode({
+      transaksi: [], arus: modal, dividen,
+      mulai: "2026-09-01", akhir: "2026-09-30",
+      targetMinPersen: 3, targetMaksPersen: 10, dasar: "IDR", kurs,
+    });
+    mendekati(r.modal, 10_000);
+    mendekati(r.targetMin, 300);
+  });
+
+  uji("bulan tanpa penjualan bisa tercapai lewat dividen saja", () => {
+    const r = realisasiPeriode({
+      transaksi: [], arus: modal,
+      dividen: [div({ tanggal: "2026-09-10", jumlahKotor: 400, pajak: 0 })],
+      mulai: "2026-09-01", akhir: "2026-09-30",
+      targetMinPersen: 3, targetMaksPersen: 10, dasar: "IDR", kurs,
+    });
+    samaDengan(r.status, "tercapai");
+    // Dan tetap terbaca bahwa tidak ada satu pun keputusan di baliknya.
+    samaDengan(r.jumlahJual, 0);
+    mendekati(r.realisasiJual, 0);
   });
 });
 
@@ -342,7 +463,7 @@ grup("realisasiPeriode", () => {
   const modal = [arus({ tanggal: "2026-08-01", jumlah: 10_000, tipe: "awal" })];
 
   const opsi = {
-    transaksi, arus: modal, mulai: "2026-09-01", akhir: "2026-09-30",
+    transaksi, arus: modal, dividen: [], mulai: "2026-09-01", akhir: "2026-09-30",
     targetMinPersen: 3, targetMaksPersen: 10, dasar: "IDR" as const, kurs,
   };
 

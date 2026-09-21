@@ -1,6 +1,6 @@
 "use client";
 
-import type { ArusModal, JurnalEntri, Saran, Snapshot, Transaksi } from "@/types";
+import type { ArusModal, Dividen, JurnalEntri, Saran, Snapshot, Transaksi } from "@/types";
 import { hariIni, tambahHari } from "@/lib/tanggal";
 
 /** Data contoh.
@@ -14,6 +14,7 @@ import { hariIni, tambahHari } from "@/lib/tanggal";
 export function dataContoh(uid: string): {
   transaksi: Transaksi[];
   arusModal: ArusModal[];
+  dividen: Dividen[];
   jurnal: JurnalEntri[];
   saran: Saran[];
   snapshot: Snapshot[];
@@ -32,6 +33,14 @@ export function dataContoh(uid: string): {
       { id: id("modal"), uid, tanggal: h(120), jumlah: 180_000_000, mataUang: "IDR", tipe: "awal", catatan: "Modal awal", dibuatPada: t },
       { id: id("modal"), uid, tanggal: h(58), jumlah: 70_000_000, mataUang: "IDR", tipe: "setor", catatan: "Bonus proyek", dibuatPada: t + 1 },
       { id: id("modal"), uid, tanggal: h(20), jumlah: 5_000_000, mataUang: "IDR", tipe: "tarik", catatan: "Kebutuhan mendadak", dibuatPada: t + 2 },
+    ],
+    // Dividen contoh memakai pajak yang benar-benar terpotong, bukan nol.
+    // Dividen bersih yang sama dengan kotornya menyembunyikan justru kolom
+    // yang paling gampang terlewat saat menyalin dari struk.
+    dividen: [
+      { id: id("div"), uid, ticker: "MSFT", jenisAset: "saham", tanggal: h(101), jumlahKotor: 4.15, pajak: 0.42, perUnit: 0.83, mataUang: "USD", catatan: "Dividen kuartalan", dibuatPada: t },
+      { id: id("div"), uid, ticker: "MSFT", jenisAset: "saham", tanggal: h(11), jumlahKotor: 4.15, pajak: 0.42, perUnit: 0.83, mataUang: "USD", catatan: "Dividen kuartalan", dibuatPada: t + 1 },
+      { id: id("div"), uid, ticker: "AAPL", jenisAset: "saham", tanggal: h(34), jumlahKotor: 2, pajak: 0.2, perUnit: 0.25, mataUang: "USD", dibuatPada: t + 2 },
     ],
     transaksi: [
       { id: id("tx"), uid, ticker: "NVDA", jenisAset: "saham", sisi: "beli", tanggal: h(110), qty: 12, harga: 118.4, fee: 1.2, mataUang: "USD", dibuatPada: t },
