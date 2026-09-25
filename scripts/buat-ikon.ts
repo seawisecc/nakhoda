@@ -36,7 +36,7 @@ async function jalan() {
   // dikecilkan ke dalam zona aman lalu dilatari warna penuh sampai tepi.
   const inti = await sharp(svg, { density: 384 }).resize(328, 328).png().toBuffer();
   const maskable = await sharp({
-    create: { width: 512, height: 512, channels: 4, background: "#0c0b0a" },
+    create: { width: 512, height: 512, channels: 4, background: "#f6f4ef" },
   })
     .composite([{ input: inti, top: 92, left: 92 }])
     .png()

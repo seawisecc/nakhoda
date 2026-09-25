@@ -1,16 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nakhoda">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Nakhoda">
   <!-- Varian lambang untuk ukuran tab dan favicon.
-       Bukan duplikat malas dari ikon.svg: pada 16px, stroke 30 di viewBox 512
-       jatuh jadi 0,94px dan hilang setengahnya ke antialiasing, sudut membulat
-       114 jadi bubur, dan garis tepi dalam menempel ke tepi kanvas. Di sini
-       goresnya digandakan, tepi dalam dibuang, dan jangkarnya sedikit
-       dirapatkan supaya batang, palang, dan lengkungnya tidak saling menempel
-       saat dikecilkan. -->
-  <rect width="512" height="512" rx="72" fill="#16120d"/>
-  <g fill="none" stroke="#e8b169" stroke-linecap="round">
-    <circle cx="256" cy="112" r="48" stroke-width="44"/>
-    <path d="M256 162v258" stroke-width="56"/>
-    <path d="M150 216h212" stroke-width="52"/>
-    <path d="M104 288c0 88 68 152 152 152s152-64 152-152" stroke-width="56"/>
+       Bukan duplikat malas dari ikon.svg: pada 16px bingkai hairline dan
+       garis kepala di ikon.svg jatuh di bawah satu piksel dan jadi bubur.
+       Di sini kotaknya diisi merah penuh supaya terbaca di tab terang maupun
+       gelap, goresnya ditebalkan, dan jangkarnya dibesarkan sampai hampir
+       menyentuh tepi. -->
+  <rect width="24" height="24" fill="#b8261f"/>
+  <g transform="translate(12 12.4) scale(0.86) translate(-12 -12)"
+     fill="none" stroke="#fdf7f6" stroke-width="2.9" stroke-linecap="square" stroke-linejoin="miter">
+    <rect x="9" y="1.8" width="6" height="5"/>
+    <path d="M12 6.8V21M6.5 10.8H17.5"/>
+    <path d="M3.5 13.5V16.2L12 21.5L20.5 16.2V13.5"/>
   </g>
 </svg>

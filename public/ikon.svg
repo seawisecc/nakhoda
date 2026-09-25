@@ -1,24 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nakhoda">
-  <defs>
-    <linearGradient id="dasar" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#1d1a16"/>
-      <stop offset="1" stop-color="#0b0a09"/>
-    </linearGradient>
-    <!-- gradientUnits userSpaceOnUse, bukan objectBoundingBox: garis lurus
-         punya kotak pembatas selebar nol, dan gradien relatif terhadap kotak
-         itu jadi tidak terdefinisi sehingga garisnya hilang sama sekali. -->
-    <linearGradient id="emas" gradientUnits="userSpaceOnUse" x1="140" y1="70" x2="380" y2="430">
-      <stop offset="0" stop-color="#f0c489"/>
-      <stop offset="0.55" stop-color="#e3aa5f"/>
-      <stop offset="1" stop-color="#b8823f"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="114" fill="url(#dasar)"/>
-  <rect x="4" y="4" width="504" height="504" rx="110" fill="none" stroke="#3a3128" stroke-width="8"/>
-  <g fill="none" stroke="url(#emas)" stroke-width="30" stroke-linecap="round">
-    <circle cx="256" cy="118" r="44" stroke-width="28"/>
-    <path d="M256 166v246"/>
-    <path d="M158 214h196"/>
-    <path d="M108 284c0 84 66 146 148 146s148-62 148-146"/>
+  <!-- Lambang ukuran besar, mengikuti sistem "papan instrumen" di globals.css:
+       dasar kertas, bingkai hairline, garis kepala merah seperti .kepala-panel,
+       dan jangkar dari gores lurus berujung persegi. Kotaknya sengaja tanpa
+       sudut membulat; Android dan iOS memotongnya sendiri, dan sudut yang
+       digambar di sini akan bertabrakan dengan potongan itu. -->
+  <rect width="512" height="512" fill="#f6f4ef"/>
+  <rect x="48" y="48" width="416" height="416" fill="none" stroke="#cdc9bc" stroke-width="6"/>
+  <rect x="45" y="45" width="422" height="14" fill="#b8261f"/>
+  <g transform="translate(256 270) scale(12.5) translate(-12 -12)"
+     fill="none" stroke="#a8231d" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+    <rect x="9.5" y="2" width="5" height="5"/>
+    <path d="M12 7V21M7 10.5H17"/>
+    <path d="M4 13.5V16L12 21L20 16V13.5"/>
   </g>
 </svg>
