@@ -20,8 +20,9 @@ export interface PenandaChart {
   teks: string;
   /** Tanda yang mengklaim arah digambar di sisi arahnya: panah naik di
    *  bawah lilin, panah turun di atasnya. Bentuk panahnya yang membawa
-   *  arah, warnanya cuma penguat. Tanpa arah (aspek planet), penandanya
-   *  netral di atas lilin. */
+   *  arah, warnanya cuma penguat. Tanpa arah (aspek planet, pola serupa),
+   *  penandanya lingkaran di atas lilin: panah ke bawah di situ dulu terbaca
+   *  sebagai klaim turun yang tidak pernah dibuat. */
   arah?: "naik" | "turun";
   /** Warna yang menggantikan warna arah. Dipakai saat teksnya adalah hasil
    *  kejadian: panah tetap menunjuk klaim pola, warnanya mengikuti apa yang
@@ -74,7 +75,7 @@ function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: WarnaPena
     p.map((x) => ({
       time: x.tanggal as Time,
       position: x.arah === "naik" ? ("belowBar" as const) : ("aboveBar" as const),
-      shape: x.arah === "naik" ? ("arrowUp" as const) : ("arrowDown" as const),
+      shape: x.arah === "naik" ? ("arrowUp" as const) : x.arah === "turun" ? ("arrowDown" as const) : ("circle" as const),
       color: warna[x.warna ?? x.arah ?? "netral"],
       text: x.teks,
     })),

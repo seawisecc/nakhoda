@@ -15,6 +15,7 @@ import { TampilanAstro } from "@/components/tampilan-astro";
 import { TampilanSinyal } from "@/components/tampilan-sinyal";
 import { TampilanPola } from "@/components/tampilan-pola";
 import { TampilanPindai } from "@/components/tampilan-pindai";
+import { TampilanSerupa } from "@/components/tampilan-serupa";
 import { cn } from "@/lib/cn";
 
 export default function HalamanChart() {
@@ -25,7 +26,7 @@ export default function HalamanChart() {
   const paramJenis = useParamKueri("jenis");
   const [pilihan, setPilihan] = useState<{ ticker: string; jenis: JenisAset } | null>(null);
   const [panelTerbuka, setPanelTerbuka] = useState(true);
-  const [mode, setMode] = useState<"tradingview" | "sinyal" | "pola" | "astro" | "pindai">("tradingview");
+  const [mode, setMode] = useState<"tradingview" | "sinyal" | "pola" | "serupa" | "astro" | "pindai">("tradingview");
 
   /* Cuma posisi yang sedang dipegang. Ticker dari saran pernah ikut di sini,
      dan hasilnya CVX yang ordernya batal tetap nongkrong di bilah pintasan
@@ -88,17 +89,17 @@ export default function HalamanChart() {
           {/* Lebih dari satu chart: widget TradingView tidak bisa diberi
               penanda, dan chart sendiri tidak punya indikatornya. */}
           <div className="flex h-9 w-full shrink-0 border border-bordr lg:w-auto" role="group" aria-label="Jenis chart">
-            {(["tradingview", "sinyal", "pola", "astro", "pindai"] as const).map((m) => (
+            {(["tradingview", "sinyal", "pola", "serupa", "astro", "pindai"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
                 aria-pressed={mode === m}
                 className={cn(
-                  "flex-1 px-3 font-mono text-[11px] tracking-[0.08em] uppercase transition lg:flex-none",
+                  "flex-1 px-1.5 font-mono text-[11px] tracking-[0.08em] uppercase transition lg:flex-none lg:px-3",
                   mode === m ? "bg-aksen-lembut text-aksen" : "text-ink-faint hover:text-ink-soft",
                 )}
               >
-                {({ tradingview: "Chart", sinyal: "Sinyal", pola: "Pola", astro: "Astro", pindai: "Pindai" } as const)[m]}
+                {({ tradingview: "Chart", sinyal: "Sinyal", pola: "Pola", serupa: "Serupa", astro: "Astro", pindai: "Pindai" } as const)[m]}
               </button>
             ))}
           </div>
@@ -185,6 +186,8 @@ export default function HalamanChart() {
             setMode("sinyal");
           }}
         />
+      ) : simbol && mode === "serupa" ? (
+        <TampilanSerupa key={`${ticker}-${jenis}`} ticker={ticker.trim().toUpperCase()} jenisAset={jenis} tema={aktif} />
       ) : simbol && mode === "pola" ? (
         <TampilanPola
           key={`${ticker}-${jenis}`}
