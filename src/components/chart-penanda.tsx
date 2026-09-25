@@ -23,6 +23,11 @@ export interface PenandaChart {
    *  arah, warnanya cuma penguat. Tanpa arah (aspek planet), penandanya
    *  netral di atas lilin. */
   arah?: "naik" | "turun";
+  /** Warna yang menggantikan warna arah. Dipakai saat teksnya adalah hasil
+   *  kejadian: panah tetap menunjuk klaim pola, warnanya mengikuti apa yang
+   *  benar-benar terjadi. Tanpa itu, pola turun yang gagal tampil sebagai
+   *  "+9,1%" berwarna merah, dan angka naik bertinta rugi. */
+  warna?: "naik" | "turun" | "netral";
 }
 
 export interface GarisChart {
@@ -70,7 +75,7 @@ function pasangPenanda(t: ISeriesMarkersPluginApi<Time> | null, warna: WarnaPena
       time: x.tanggal as Time,
       position: x.arah === "naik" ? ("belowBar" as const) : ("aboveBar" as const),
       shape: x.arah === "naik" ? ("arrowUp" as const) : ("arrowDown" as const),
-      color: x.arah ? warna[x.arah] : warna.netral,
+      color: warna[x.warna ?? x.arah ?? "netral"],
       text: x.teks,
     })),
   );

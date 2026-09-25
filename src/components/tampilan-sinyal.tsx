@@ -3,12 +3,10 @@
 import { Fragment, useMemo, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, Plus } from "lucide-react";
 import type { JenisAset, Saran } from "@/types";
+import { DAFTAR_SINYAL } from "@/lib/hitung/sinyal";
 import {
-  DAFTAR_SINYAL, kejadianSinyal, levelSinyal, type DefinisiSinyal, type LevelSinyal,
-} from "@/lib/hitung/sinyal";
-import {
-  kalimatKesimpulan, nilaiUji, ujiDariIndeks, type HasilUji, type Penilaian,
-} from "@/lib/hitung/uji-kejadian";
+  JENDELA_AKTIF, RR_MIN, evaluasiSinyal, hasilPerTanggal, layakSaran, type HasilSinyal,
+} from "@/lib/hitung/evaluasi-sinyal";
 import { tanggalUtc } from "@/lib/hitung/astro";
 import { formatAngka, formatPersen, formatUang, tandaArah } from "@/lib/format";
 import { formatTanggal, hariIni } from "@/lib/tanggal";
@@ -20,23 +18,7 @@ import { ChartPenanda, type PenandaChart } from "@/components/chart-penanda";
 import { LencanaTingkat } from "@/components/tingkat";
 import { cn } from "@/lib/cn";
 
-const HORIZON = [1, 5, 10, 20] as const;
-/** Pola yang selesai dalam tiga sesi terakhir masih dianggap aktif. Lebih
- *  lama dari itu, harganya sudah bergerak dan entry-nya bukan lagi entry
- *  yang diuji. */
-const JENDELA_AKTIF = 3;
-const RR_MIN = 1.5;
-
-interface HasilSinyal {
-  def: DefinisiSinyal;
-  kejadian: number[];
-  uji: HasilUji;
-  nilai: Penilaian;
-  kalimat: string;
-  /** Indeks kemunculan terakhir di jendela aktif, atau null. */
-  aktifDi: number | null;
-  level: LevelSinyal | null;
-}
+export const HORIZON = [1, 5, 10, 20] as const;
 
 function Arah({ nilai }: { nilai: number | null }) {
   if (nilai === null) return <span className="angka text-ink-faint">—</span>;
@@ -48,7 +30,7 @@ function Arah({ nilai }: { nilai: number | null }) {
   );
 }
 
-function PanahArah({ arah }: { arah: "naik" | "turun" }) {
+export function PanahArah({ arah }: { arah: "naik" | "turun" }) {
   return (
     <span className={arah === "naik" ? "text-naik" : "text-turun"} title={`Pola ${arah}`}>
       {arah === "naik" ? "▲" : "▼"}
@@ -116,28 +98,10 @@ export function TampilanSinyal({
     [batang],
   );
 
-  const hasil = useMemo<HasilSinyal[]>(() => {
-    if (!batang || !deteksi) return [];
-    return DAFTAR_SINYAL.map((def, k) => {
-      const kejadian = kejadianSinyal(deteksi[k], horizon);
-      const uji = ujiDariIndeks(batang, kejadian, horizon);
-      const nilai = nilaiUji(uji, DAFTAR_SINYAL.length, def.arah);
-      let aktifDi: number | null = null;
-      for (let i = batang.length - 1; i >= batang.length - JENDELA_AKTIF && i >= 0; i -= 1) {
-        if (deteksi[k][i]) {
-          aktifDi = i;
-          break;
-        }
-      }
-      const level = aktifDi !== null && nilai.tingkat === "catatan" && nilai.searah
-        ? levelSinyal(batang, aktifDi, def, uji.median)
-        : null;
-      return {
-        def, kejadian, uji, nilai, aktifDi, level,
-        kalimat: kalimatKesimpulan(def.nama, ticker, uji, nilai, def.arah),
-      };
-    });
-  }, [batang, deteksi, horizon, ticker]);
+  const hasil = useMemo<HasilSinyal[]>(
+    () => (batang && deteksi ? evaluasiSinyal(batang, horizon, ticker, deteksi) : []),
+    [batang, deteksi, horizon, ticker],
+  );
 
   const aktif = hasil.filter((h) => h.aktifDi !== null);
   // Pilihan bawaan: tanda aktif pertama, supaya chart langsung menunjukkan
@@ -145,21 +109,27 @@ export function TampilanSinyal({
   const dipilih = pilihan ?? aktif[0]?.def.id ?? null;
   const terpilih = hasil.find((h) => h.def.id === dipilih) ?? null;
 
+  // Tiap penanda membawa hasilnya sendiri setelah jendela yang dipilih.
+  // Rata-rata di tabel menyembunyikan sebarannya; di chart terlihat apakah
+  // polanya berhasil merata atau cuma karena dua kejadian besar.
   const penanda = useMemo<PenandaChart[]>(() => {
     if (!batang || !terpilih) return [];
     const indeks = new Set(terpilih.kejadian);
     if (terpilih.aktifDi !== null) indeks.add(terpilih.aktifDi);
-    return [...indeks].sort((p, q) => p - q).map((i) => ({
-      tanggal: batang[i].tanggal,
-      teks: "",
-      arah: terpilih.def.arah,
-    }));
+    const hasilKejadian = hasilPerTanggal(terpilih.uji);
+    return [...indeks].sort((p, q) => p - q).map((i) => {
+      const r = hasilKejadian.get(batang[i].tanggal);
+      return {
+        tanggal: batang[i].tanggal,
+        teks: r !== undefined ? formatPersen(r * 100, 1) : i === terpilih.aktifDi ? "baru" : "",
+        arah: terpilih.def.arah,
+        warna: r === undefined ? "netral" : r > 0 ? "naik" : r < 0 ? "turun" : "netral",
+      };
+    });
   }, [batang, terpilih]);
 
   const lilinBerjalan = !!batang?.length && batang[batang.length - 1].tanggal >= tanggalUtc(sekarang);
-  const layak = aktif.filter(
-    (h) => h.level && h.level.rr >= RR_MIN && (h.def.arah === "naik" || dipegang),
-  );
+  const layak = aktif.filter((h) => layakSaran(h, dipegang));
 
   let ringkasan: string | null = null;
   if (batang) {
@@ -217,7 +187,7 @@ export function TampilanSinyal({
             <ul className="mt-3 -mx-4 divide-y divide-bordr border-y border-bordr">
               {aktif.map((h) => {
                 const umur = batang.length - 1 - h.aktifDi!;
-                const bisaDisaran = h.level && h.level.rr >= RR_MIN && (h.def.arah === "naik" || dipegang);
+                const bisaDisaran = layakSaran(h, dipegang);
                 return (
                   <li key={h.def.id} className="space-y-2 px-4 py-3">
                     <div className="flex items-center justify-between gap-2">
@@ -356,7 +326,7 @@ export function TampilanSinyal({
 
         <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">
           Return dari tutup lilin pola sampai {horizon} sesi sesudahnya, dibanding {horizon} sesi dari hari mana pun.
-          Klik baris untuk melihat kemunculannya di chart.
+          Klik baris untuk melihat kemunculannya di chart; angka di tiap penanda adalah hasil kejadian itu.
         </p>
       </Kartu>
     </div>

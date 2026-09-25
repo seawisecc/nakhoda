@@ -4,6 +4,23 @@ import { useEffect, useState } from "react";
 import type { JenisAset } from "@/types";
 import type { Lilin } from "@/lib/hitung/sinyal";
 
+export type HasilAmbilRiwayat =
+  | { ok: true; batang: Lilin[]; sumber: string }
+  | { ok: false; galat: string };
+
+/** Satu permintaan ke /api/riwayat. Dipakai hook di bawah dan pemindai
+ *  posisi, supaya pesan galatnya sama di kedua tempat. */
+export async function ambilRiwayat(ticker: string, jenisAset: JenisAset): Promise<HasilAmbilRiwayat> {
+  try {
+    const r = await fetch(`/api/riwayat?ticker=${encodeURIComponent(ticker)}&jenis=${jenisAset}`);
+    const j = await r.json();
+    if (!r.ok) return { ok: false, galat: j.galat ?? "Riwayat harga tidak tersedia." };
+    return { ok: true, batang: j.batang, sumber: j.sumber };
+  } catch {
+    return { ok: false, galat: "Gagal mengambil riwayat harga." };
+  }
+}
+
 /** Riwayat harian dari /api/riwayat, selalu USD.
  *
  *  Pemakainya di-remount setiap ticker berubah (lewat prop key), jadi
@@ -18,23 +35,16 @@ export function useRiwayat(ticker: string, jenisAset: JenisAset) {
   useEffect(() => {
     if (!ticker) return;
     let batal = false;
-    fetch(`/api/riwayat?ticker=${encodeURIComponent(ticker)}&jenis=${jenisAset}`)
-      .then(async (r) => {
-        const j = await r.json();
-        if (batal) return;
-        if (!r.ok) {
-          setGalat(j.galat ?? "Riwayat harga tidak tersedia.");
-          return;
-        }
-        setBatang(j.batang);
-        setSumber(j.sumber);
-      })
-      .catch(() => {
-        if (!batal) setGalat("Gagal mengambil riwayat harga.");
-      })
-      .finally(() => {
-        if (!batal) setMemuat(false);
-      });
+    ambilRiwayat(ticker, jenisAset).then((h) => {
+      if (batal) return;
+      if (h.ok) {
+        setBatang(h.batang);
+        setSumber(h.sumber);
+      } else {
+        setGalat(h.galat);
+      }
+      setMemuat(false);
+    });
     return () => { batal = true; };
   }, [ticker, jenisAset]);
 

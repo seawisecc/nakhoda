@@ -15,5 +15,6 @@ await import("./format.test");
 await import("./astro.test");
 await import("./sinyal.test");
 await import("./bentuk.test");
+await import("./evaluasi-sinyal.test");
 
 ringkasan();

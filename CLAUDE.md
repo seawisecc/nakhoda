@@ -18,7 +18,7 @@ memintanya secara eksplisit.
 ```bash
 npm run dev            # pengembangan, localhost:3000
 npm run build && npm start   # produksi
-npm run verify         # lint + 324 tes + build. Jalankan sebelum bilang selesai.
+npm run verify         # lint + 334 tes + build. Jalankan sebelum bilang selesai.
 ```
 
 Perintah lain: `npm run kunci` (simpan API key tanpa lewat riwayat shell),
@@ -187,6 +187,8 @@ src/lib/hitung/     Logika murni: posisi, trade, kinerja, dividen, risiko,
                     sinyal (pola lilin, indikator, double bottom, garis tren,
                     level, koreksi dalam tren, divergensi RSI, penyempitan
                     Bollinger),
+                    evaluasi-sinyal (penilaian bersama untuk Sinyal dan
+                    Pindai, supaya satu tanda tidak lolos di satu layar saja),
                     bentuk (gambar pola yang sedang berlangsung),
                     simulasi (kapan tembus target, dan return aktual per bulan),
                     uji-kejadian (uji semuanya)
