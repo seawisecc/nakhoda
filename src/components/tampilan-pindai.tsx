@@ -6,6 +6,7 @@ import type { JenisAset } from "@/types";
 import { DAFTAR_SINYAL, type Lilin } from "@/lib/hitung/sinyal";
 import { JENDELA_AKTIF, RR_MIN, evaluasiSinyal, ringkasPindai } from "@/lib/hitung/evaluasi-sinyal";
 import { formatAngka } from "@/lib/format";
+import { tindakanPindai } from "@/lib/hitung/narasi";
 import { ambilRiwayat } from "@/lib/riwayat";
 import { Kartu, Kosong, Pilihan } from "@/components/ui/dasar";
 import { Tabel, Td, Th, Tr } from "@/components/ui/tabel";
@@ -96,9 +97,9 @@ export function TampilanPindai({
   if (selesai < posisi.length) {
     ringkasan = `Memindai ${posisi.length} posisi, ${selesai} selesai.`;
   } else if (layak.length) {
-    ringkasan = `${layak.length === 1 ? "Satu posisi punya" : `${layak.length} posisi punya`} tanda yang lolos uji dan R:R minimal ${formatAngka(RR_MIN, 1)}: ${layak.map((b) => b.t.ticker).join(", ")}. Buka tickernya untuk melihat chart dan levelnya.`;
+    ringkasan = `Ada yang layak dipertimbangkan di ${layak.map((b) => b.t.ticker).join(", ")}: polanya punya catatan yang bisa dipercaya dan imbalannya minimal ${formatAngka(RR_MIN, 1)} kali risiko. Buka tickernya untuk melihat harga masuk, batas rugi, dan target.`;
   } else {
-    ringkasan = `Tidak ada yang perlu dilakukan di ${posisi.length - gagal} posisi. Tidak satu pun tanda di ${JENDELA_AKTIF} sesi terakhir yang lolos uji di tickernya sendiri.`;
+    ringkasan = `Diam saja hari ini. Di ${posisi.length - gagal} posisi yang kamu pegang, tidak ada pola dalam ${JENDELA_AKTIF} sesi terakhir yang catatannya cukup untuk dipercaya. Rencanamu sendiri untuk tiap posisi tetap yang berlaku.`;
   }
   if (gagal && selesai === posisi.length) {
     ringkasan += ` ${gagal} posisi tidak bisa dipindai karena riwayatnya tidak tersedia.`;
@@ -133,7 +134,7 @@ export function TampilanPindai({
             <>
               <Th>Ticker</Th>
               <Th>Tanda yang muncul</Th>
-              <Th kanan>Kesimpulan</Th>
+              <Th>Tindakan</Th>
             </>
           }
         >
@@ -169,16 +170,11 @@ export function TampilanPindai({
                   <span className="text-ink-faint">Tidak ada pola yang muncul.</span>
                 )}
               </Td>
-              <Td kanan>
-                {ringkas?.layak.length ? (
-                  <span className="text-info">
-                    Lolos · R:R{" "}
-                    <span className="angka">
-                      {formatAngka(Math.max(...ringkas.layak.map((h) => h.level!.rr)), 2)}
-                    </span>
+              <Td>
+                {ringkas ? (
+                  <span className={ringkas.layak.length ? "font-medium text-ink" : "text-ink-soft"}>
+                    {tindakanPindai(ringkas, t.ticker)}
                   </span>
-                ) : ringkas ? (
-                  <span className="text-ink-faint">Tidak ada yang lolos</span>
                 ) : (
                   <span className="text-ink-faint">—</span>
                 )}

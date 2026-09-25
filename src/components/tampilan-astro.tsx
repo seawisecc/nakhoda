@@ -15,6 +15,8 @@ import { ChartPenanda, type PenandaChart } from "@/components/chart-penanda";
 import { LencanaTingkat } from "@/components/tingkat";
 import { kalimatKesimpulan, nilaiUji } from "@/lib/hitung/uji-kejadian";
 import { useRiwayat } from "@/lib/riwayat";
+import { kalimatRentangPersen, narasiAstro, sebaran, sebaranHariBiasa } from "@/lib/hitung/narasi";
+import { BlokNarasi } from "@/components/narasi";
 import { cn } from "@/lib/cn";
 
 const HARI = 86_400_000;
@@ -99,15 +101,28 @@ export function TampilanAstro({
   );
 
   const akanDatang = kejadian.filter((k) => k.waktu > sekarang).slice(0, 8);
-  const berarti = hasilUji.filter((u) => u.nilai?.tingkat === "catatan");
-  const lemah = hasilUji.filter((u) => u.nilai?.tingkat === "lemah");
-  const ringkasan = !batang
-    ? null
-    : berarti.length
-      ? berarti.map((u) => u.kalimat).join(" ")
-      : `Abaikan pasangan ini untuk ${ticker}. Tidak ada aspek ${PLANET[a].nama} dan ${PLANET[b].nama} yang hasilnya beda dari hari biasa${
-        lemah.length ? `; ${lemah.map((u) => ASPEK[u.aspek].nama.toLowerCase()).join(" dan ")} cuma petunjuk lemah yang masih wajar muncul secara kebetulan` : ""
-      }.`;
+  const satuan = jenisAset === "kripto" ? "hari" : "hari bursa";
+  const pasangan = `${PLANET[a].nama}-${PLANET[b].nama}`;
+  const berikut = akanDatang[0] ?? null;
+  const narasi = batang
+    ? narasiAstro(
+      hasilUji.map((u) => ({ nama: ASPEK[u.aspek].nama, uji: u.hasil, nilai: u.nilai })),
+      {
+        ticker, pasangan, horizon, satuan,
+        berikutnya: berikut ? { nama: ASPEK[berikut.aspek].nama, tanggal: formatTanggal(tanggalUtc(berikut.waktu)) } : null,
+      },
+    )
+    : null;
+  // Perkiraan untuk aspek berikutnya saja, dan dalam persen: harganya pada
+  // hari aspek itu belum diketahui, jadi rentang dalam dolar akan berdiri
+  // di atas harga yang belum ada.
+  const ujiBerikut = berikut ? hasilUji.find((u) => u.aspek === berikut.aspek) : null;
+  const sebaranBerikut = ujiBerikut?.hasil ? sebaran(ujiBerikut.hasil.kejadian.map((k) => k.hasil)) : null;
+  const perkiraan = batang && sebaranBerikut && ujiBerikut?.nilai
+    ? `${ASPEK[berikut!.aspek].nama} ${pasangan}, dari ${sebaranBerikut.n} kejadian: ${kalimatRentangPersen(
+      sebaranBerikut, sebaranHariBiasa(batang, horizon), ujiBerikut.nilai.tingkat, horizon, satuan,
+    )}`
+    : null;
 
   const ubahAspek = (x: JenisAspek) =>
     setAktif((s) => {
@@ -119,6 +134,12 @@ export function TampilanAstro({
 
   return (
     <div className="space-y-3">
+      {narasi ? (
+        <div className="kartu border-l-2 border-l-info px-4 py-3">
+          <BlokNarasi narasi={narasi} perkiraan={perkiraan} />
+        </div>
+      ) : null}
+
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="kartu relative h-[min(70vh,760px)] min-h-[380px] p-2">
           {batang ? (
@@ -210,9 +231,6 @@ export function TampilanAstro({
       </div>
 
       <Kartu>
-        {ringkasan ? (
-          <p className="mb-4 border-l-2 border-info pl-3 text-[13px] leading-relaxed text-ink">{ringkasan}</p>
-        ) : null}
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="label-mikro text-[11px] text-ink-soft">
             Uji {PLANET[a].nama} · {PLANET[b].nama}

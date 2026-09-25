@@ -187,7 +187,13 @@ export default function HalamanChart() {
           }}
         />
       ) : simbol && mode === "serupa" ? (
-        <TampilanSerupa key={`${ticker}-${jenis}`} ticker={ticker.trim().toUpperCase()} jenisAset={jenis} tema={aktif} />
+        <TampilanSerupa
+          key={`${ticker}-${jenis}`}
+          ticker={ticker.trim().toUpperCase()}
+          jenisAset={jenis}
+          tema={aktif}
+          dipegang={!!posisi}
+        />
       ) : simbol && mode === "pola" ? (
         <TampilanPola
           key={`${ticker}-${jenis}`}

@@ -16,6 +16,10 @@ import { Kartu, Kosong, Pilihan, Tombol, warnaArah } from "@/components/ui/dasar
 import { Tabel, Td, Th, Tr } from "@/components/ui/tabel";
 import { ChartPenanda, type PenandaChart } from "@/components/chart-penanda";
 import { LencanaTingkat } from "@/components/tingkat";
+import { BlokNarasi } from "@/components/narasi";
+import {
+  kalimatRentang, narasiSinyal, rentangHarga, sebaran, sebaranHariBiasa,
+} from "@/lib/hitung/narasi";
 import { cn } from "@/lib/cn";
 
 export const HORIZON = [1, 5, 10, 20] as const;
@@ -102,6 +106,17 @@ export function TampilanSinyal({
     () => (batang && deteksi ? evaluasiSinyal(batang, horizon, ticker, deteksi) : []),
     [batang, deteksi, horizon, ticker],
   );
+
+  const satuan = jenisAset === "kripto" ? "hari" : "hari bursa";
+  // Pembanding "tanpa pola apa pun", dihitung sekali per jendela untuk
+  // semua tanda yang aktif.
+  const biasa = useMemo(() => (batang ? sebaranHariBiasa(batang, horizon) : null), [batang, horizon]);
+  const perkiraan = (h: HasilSinyal): string | null => {
+    const s = sebaran(h.uji.kejadian.map((k) => k.hasil));
+    if (!batang || !s) return null;
+    const harga = batang[batang.length - 1].tutup;
+    return kalimatRentang(rentangHarga(s, biasa, harga), h.nilai.tingkat, horizon, satuan, ticker);
+  };
 
   const aktif = hasil.filter((h) => h.aktifDi !== null);
   // Pilihan bawaan: tanda aktif pertama, supaya chart langsung menunjukkan
@@ -202,7 +217,12 @@ export function TampilanSinyal({
                     <p className="label-mikro">
                       {umur === 0 ? "sesi terakhir" : `${umur} sesi lalu`} · {formatTanggal(batang[h.aktifDi!].tanggal)}
                     </p>
-                    <p className="text-[12px] leading-relaxed text-ink-soft">{h.kalimat}</p>
+                    <BlokNarasi
+                      narasi={narasiSinyal(h, {
+                        ticker, dipegang, horizon, satuan, indeksAkhir: batang.length - 1,
+                      })}
+                      perkiraan={perkiraan(h)}
+                    />
 
                     {h.level ? (
                       <div className="jala grid-cols-4 border border-bordr">
@@ -220,16 +240,6 @@ export function TampilanSinyal({
                       </div>
                     ) : null}
 
-                    {h.level && h.level.rr < RR_MIN ? (
-                      <p className="text-[11px] text-ink-faint">
-                        R:R di bawah {formatAngka(RR_MIN, 1)}: gerak khasnya terlalu kecil dibanding jarak ke stop.
-                      </p>
-                    ) : null}
-                    {h.level && h.def.arah === "turun" && !dipegang ? (
-                      <p className="text-[11px] text-ink-faint">
-                        Kamu tidak memegang {ticker}. Tanda turun di sini cuma berarti jangan beli dulu.
-                      </p>
-                    ) : null}
                     {bisaDisaran ? (
                       tersimpan.has(h.def.id) ? (
                         <p className="flex items-center gap-1.5 text-[12px] text-info">

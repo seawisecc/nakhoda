@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { JenisAset } from "@/types";
 import { JUMLAH_SERUPA, KORELASI_MIN, PANJANG_SERUPA, cariSerupa } from "@/lib/hitung/serupa";
-import { kalimatKesimpulan, nilaiUji, ujiDariIndeks } from "@/lib/hitung/uji-kejadian";
+import { nilaiUji, ujiDariIndeks } from "@/lib/hitung/uji-kejadian";
+import {
+  kalimatRentang, narasiSerupa, rentangHarga, sebaran, sebaranHariBiasa, type Narasi,
+} from "@/lib/hitung/narasi";
+import { BlokNarasi } from "@/components/narasi";
 import { formatAngka, formatPersen, tandaArah } from "@/lib/format";
 import { formatTanggal } from "@/lib/tanggal";
 import { useRiwayat } from "@/lib/riwayat";
@@ -22,11 +26,12 @@ import { cn } from "@/lib/cn";
  *  jadi tidak ada stop yang bisa diturunkan darinya; yang bisa dia katakan
  *  cuma apakah masa lalu bentuk ini berbeda dari hari biasa. */
 export function TampilanSerupa({
-  ticker, jenisAset, tema,
+  ticker, jenisAset, tema, dipegang,
 }: {
   ticker: string;
   jenisAset: JenisAset;
   tema: string;
+  dipegang: boolean;
 }) {
   const { batang, sumber, memuat, galat } = useRiwayat(ticker, jenisAset);
   const [horizon, setHorizon] = useState<number>(10);
@@ -43,7 +48,7 @@ export function TampilanSerupa({
   // Satu uji di layar ini. Panjang dan jumlah kecocokan sengaja tidak bisa
   // diubah, supaya jumlah ujinya memang satu.
   const nilai = uji ? nilaiUji(uji, 1) : null;
-  const nama = `Bentuk ${PANJANG_SERUPA} sesi seperti sekarang`;
+  const satuan = jenisAset === "kripto" ? "hari" : "hari bursa";
 
   const hasilPer = useMemo(
     () => new Map(uji?.kejadian.map((k) => [k.tanggalMasuk, k.hasil]) ?? []),
@@ -78,21 +83,38 @@ export function TampilanSerupa({
     return g;
   }, [batang, serupa, dipilih]);
 
-  let ringkasan: string | null = null;
+  let narasi: Narasi | null = null;
+  let perkiraan: string | null = null;
+  let catatan: string | null = null;
   if (batang) {
     if (!serupa) {
-      ringkasan = `Riwayat ${ticker} terlalu pendek, atau ${PANJANG_SERUPA} sesi terakhirnya datar, jadi tidak ada bentuk yang bisa dicari.`;
-    } else if (!serupa.cocok.length) {
-      ringkasan = `Tidak ada potongan di riwayat ${ticker} yang bentuknya cukup mirip dengan ${PANJANG_SERUPA} sesi terakhir (korelasi minimal ${formatAngka(KORELASI_MIN, 1)}). Bentuk sekarang tidak punya pembanding.`;
-    } else if (uji && nilai) {
-      ringkasan = kalimatKesimpulan(nama, ticker, uji, nilai);
+      catatan = `Riwayat ${ticker} terlalu pendek, atau ${PANJANG_SERUPA} sesi terakhirnya datar, jadi tidak ada bentuk yang bisa dicari.`;
+    } else {
+      const paling = serupa.cocok[0];
+      narasi = narasiSerupa(uji, nilai, {
+        ticker, dipegang, horizon, satuan, panjang: PANJANG_SERUPA, jumlah: serupa.cocok.length,
+        paling: paling ? { tanggal: formatTanggal(batang[paling.akhir].tanggal), korelasi: paling.korelasi } : null,
+      });
+      const s = uji ? sebaran(uji.kejadian.map((k) => k.hasil)) : null;
+      if (s && nilai) {
+        perkiraan = kalimatRentang(
+          rentangHarga(s, sebaranHariBiasa(batang, horizon), batang[batang.length - 1].tutup),
+          nilai.tingkat, horizon, satuan, ticker,
+        );
+      }
+      if (!serupa.cocok.length) {
+        catatan = `Korelasi minimal ${formatAngka(KORELASI_MIN, 1)}; di bawah itu dua potongan cuma sama-sama naik atau sama-sama turun.`;
+      }
     }
   }
 
   return (
     <div className="space-y-3">
-      {ringkasan ? (
-        <p className="kartu border-l-2 border-l-info px-4 py-3 text-[13px] leading-relaxed text-ink">{ringkasan}</p>
+      {narasi || catatan ? (
+        <div className="kartu border-l-2 border-l-info px-4 py-3">
+          {narasi ? <BlokNarasi narasi={narasi} perkiraan={perkiraan} /> : null}
+          {catatan ? <p className={cn("text-[12px] text-ink-faint", narasi && "mt-2")}>{catatan}</p> : null}
+        </div>
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_340px]">
