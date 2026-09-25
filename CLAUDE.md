@@ -243,6 +243,14 @@ dia yang membuat app bisa dinilai tanpa setup.
   luar viewport tanpa scrollbar: di halaman Chart, pemilih jenis aset dan
   tombolnya hilang di lebar 390px dan tidak ada cara menjangkaunya. Yang
   meluber tidak terlihat di layar lebar sama sekali.
+- **iOS Safari memperbesar halaman saat kolom di bawah 16px disentuh.** Kolom
+  di sini memakai `text-sm`, jadi di layar sentuh ukurannya dinaikkan ke 16px
+  oleh aturan di akhir `globals.css`. Aturan itu harus di `@layer utilities`:
+  di `@layer base` dia kalah dari `text-sm` tanpa error. `maximum-scale=1`
+  sengaja tidak dipakai karena mematikan cubit-perbesar di Android.
+- **Ikon layar rumah dipotong sudut bulat oleh iOS.** Bingkai atau garis di
+  tepi `ikon.svg` akan terpotong dan membuat ikonnya mirip selembar kertas.
+  Lambang besar sekarang kotak merah penuh, sama dengan favicon.
 - **Tampilan ponsel tidak bisa diuji dengan mengubah ukuran jendela.** Kalau
   jendelanya maximized, Chrome mengabaikan permintaan resize sementara tetap
   melaporkan sukses, dan `window.innerWidth` tidak berubah. Cara yang jalan:

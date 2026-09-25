@@ -531,3 +531,28 @@
     transform: none;
   }
 }
+
+/* ── Kolom isian di layar sentuh: 16px ────────────────────────────────────
+   iOS Safari memperbesar halaman setiap kali kolom yang hurufnya di bawah
+   16px disentuh, dan tidak mengecilkannya lagi sesudahnya. Kolom di sini
+   memakai text-sm (14px), jadi setiap ketikan di ponsel berakhir dengan
+   halaman yang tergeser dan harus dicubit balik.
+
+   Obat yang lebih sering disarankan, maximum-scale=1 di viewport, ditolak:
+   di Android dia mematikan cubit-perbesar sama sekali, dan itu mengambil
+   alat baca angka kecil dari tabel yang padat. Yang dinaikkan cuma ukuran
+   huruf kolomnya, dan cuma di perangkat yang penunjuknya jari.
+
+   Harus di @layer utilities, bukan base: text-sm hidup di layer utilities,
+   dan layer yang lebih akhir menang atas layer sebelumnya berapa pun
+   spesifisitasnya. :root menaikkan spesifisitas ke (0,1,1) supaya menang
+   atas kelas ukuran huruf mana pun di layer yang sama. */
+@layer utilities {
+  @media (pointer: coarse) {
+    :root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    :root select,
+    :root textarea {
+      font-size: 16px;
+    }
+  }
+}

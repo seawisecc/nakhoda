@@ -32,17 +32,14 @@ async function jalan() {
   }
 
   // Ikon maskable dipotong Android jadi lingkaran atau kotak membulat, dan
-  // potongannya bisa memakan sampai 20% di tiap sisi. Karena itu lambang
-  // dikecilkan ke dalam zona aman lalu dilatari warna penuh sampai tepi.
-  const inti = await sharp(svg, { density: 384 }).resize(328, 328).png().toBuffer();
-  const maskable = await sharp({
-    create: { width: 512, height: 512, channels: 4, background: "#f6f4ef" },
-  })
-    .composite([{ input: inti, top: 92, left: 92 }])
-    .png()
-    .toBuffer();
+  // potongannya bisa memakan sampai 20% di tiap sisi. ikon.svg sudah merah
+  // sampai tepi dan jangkarnya (sekitar 56% kotak) jatuh di dalam lingkaran
+  // zona aman 80%, jadi dia dipakai apa adanya. Mengecilkannya lagi, seperti
+  // saat ikonnya masih berbingkai, membuat jangkarnya jadi titik kecil di
+  // tengah lingkaran merah.
+  const maskable = await sharp(svg, { density: 384 }).resize(512, 512).png().toBuffer();
   writeFileSync(join(publik, "ikon-maskable-512.png"), maskable);
-  console.log("  ikon-maskable-512.png  512×512 (zona aman 80%)");
+  console.log("  ikon-maskable-512.png  512×512 (jangkar di dalam zona aman 80%)");
 
   // Favicon. Sengaja di public/, bukan di src/app/favicon.ico: metadata
   // berbasis berkas di App Router mengalahkan seluruh objek `metadata.icons`,

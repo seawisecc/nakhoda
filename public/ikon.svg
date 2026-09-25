@@ -1,14 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nakhoda">
-  <!-- Lambang ukuran besar, mengikuti sistem "papan instrumen" di globals.css:
-       dasar kertas, bingkai hairline, garis kepala merah seperti .kepala-panel,
-       dan jangkar dari gores lurus berujung persegi. Kotaknya sengaja tanpa
-       sudut membulat; Android dan iOS memotongnya sendiri, dan sudut yang
-       digambar di sini akan bertabrakan dengan potongan itu. -->
-  <rect width="512" height="512" fill="#f6f4ef"/>
-  <rect x="48" y="48" width="416" height="416" fill="none" stroke="#cdc9bc" stroke-width="6"/>
-  <rect x="45" y="45" width="422" height="14" fill="#b8261f"/>
-  <g transform="translate(256 270) scale(12.5) translate(-12 -12)"
-     fill="none" stroke="#a8231d" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
+  <!-- Lambang ukuran besar: layar rumah, PWA, apple-touch.
+       Kotak merah penuh dengan jangkar putih kertas, sama dengan favicon.
+       Versi sebelumnya memakai dasar kertas, bingkai hairline, dan garis
+       kepala merah seperti .kepala-panel. Di layar rumah iOS bingkai itu
+       dipotong sudut bulat sehingga ikonnya terbaca sebagai selembar kertas,
+       bukan lambang. Bahasa papan instrumen tetap dibawa jangkarnya: gores
+       lurus, ujung persegi, sudut nol. Kotaknya sengaja tanpa sudut membulat
+       karena iOS dan Android memotongnya sendiri. -->
+  <rect width="512" height="512" fill="#b8261f"/>
+  <g transform="translate(256 262) scale(15) translate(-12 -11.5)"
+     fill="none" stroke="#fdf7f6" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter">
     <rect x="9.5" y="2" width="5" height="5"/>
     <path d="M12 7V21M7 10.5H17"/>
     <path d="M4 13.5V16L12 21L20 16V13.5"/>
