@@ -1,5 +1,5 @@
 import {
-  DAFTAR_SINYAL, ema, kejadianSinyal, levelSinyal, macd, polaGanda, rsi, sma, type Lilin,
+  DAFTAR_SINYAL, bollinger, ema, kejadianSinyal, levelSinyal, macd, polaGanda, rsi, sma, type Lilin,
 } from "@/lib/hitung/sinyal";
 import {
   kalimatKesimpulan, nilaiUji, ujiDariIndeks, type HasilUji,
@@ -254,5 +254,131 @@ grup("pola ganda", () => {
     const b = dariHarga(Array.from({ length: 60 }, (_, i) => 100 + i));
     samaDengan(def("double-bottom").deteksi(b).some(Boolean), false);
     samaDengan(def("double-top").deteksi(b).some(Boolean), false);
+  });
+});
+
+grup("koreksi, divergensi, dan penyempitan", () => {
+  const dariHarga = (harga: number[]): Lilin[] =>
+    harga.map((h) => l(h, h + 0.3, h - 0.3, h));
+  /** Jalan acak yang bisa diulang, supaya tes tidak bergantung keberuntungan. */
+  const acak = (n: number, benih = 7) => {
+    let x = benih;
+    let h = 100;
+    return dariHarga(Array.from({ length: n }, () => {
+      x = (x * 1103515245 + 12345) % 2147483648;
+      h *= 1 + (x / 2147483648 - 0.5) * 0.06;
+      return h;
+    }));
+  };
+  const BARU = [
+    "koreksi-tren-naik", "pantulan-tren-turun", "divergensi-naik", "divergensi-turun",
+    "sempit-tembus-atas", "sempit-tembus-bawah",
+  ];
+
+  uji("Bollinger: deret datar punya pita selebar nol", () => {
+    const x = bollinger(Array.from({ length: 25 }, () => 50));
+    samaDengan(x.atas[24], 50);
+    samaDengan(x.lebar[24], 0);
+    samaDengan(x.tengah[18], null);
+  });
+
+  uji("Bollinger memakai simpangan baku populasi", () => {
+    // 1..4: rata-rata 2,5, simpangan populasi akar 1,25.
+    const x = bollinger([1, 2, 3, 4], 4, 2);
+    mendekati(x.atas[3]!, 2.5 + 2 * Math.sqrt(1.25), 1e-12);
+  });
+
+  uji("tanda di hari i tidak berubah kalau data sesudahnya ditambahkan", () => {
+    // Penjaga bocoran masa depan: deteksi atas potongan harus sama dengan
+    // deteksi atas deret penuh di indeks yang sama.
+    const b = acak(700);
+    for (const id of BARU) {
+      const penuh = def(id).deteksi(b);
+      for (let k = 250; k <= b.length; k += 37) {
+        samaDengan(def(id).deteksi(b.slice(0, k))[k - 1], penuh[k - 1], `${id} di ${k}`);
+      }
+    }
+  });
+
+  uji("keenam sinyal baru muncul di jalan acak panjang", () => {
+    const b = acak(3000, 11);
+    for (const id of BARU) benar(def(id).deteksi(b).some(Boolean), `${id} tidak pernah muncul`);
+  });
+
+  /** 220 sesi naik pelan, lalu tiga hari turun tajam yang masih jauh di atas SMA 200. */
+  const trenLaluKoreksi = () => dariHarga([
+    ...Array.from({ length: 220 }, (_, i) => 100 + i * 0.5),
+    205, 201, 197,
+  ]);
+
+  uji("koreksi dalam tren naik ditandai sekali, di hari RSI 2 masuk di bawah 10", () => {
+    const d = def("koreksi-tren-naik").deteksi(trenLaluKoreksi());
+    samaDengan(d.filter(Boolean).length, 1);
+    benar(d[220] || d[221], "muncul di awal koreksi");
+  });
+
+  uji("koreksi yang sama di bawah SMA 200 tidak dihitung", () => {
+    const b = dariHarga([
+      ...Array.from({ length: 220 }, (_, i) => 300 - i * 0.5),
+      186, 182, 178,
+    ]);
+    samaDengan(def("koreksi-tren-naik").deteksi(b).some(Boolean), false);
+  });
+
+  uji("pantulan dalam tren turun mencerminkan koreksi dalam tren naik", () => {
+    const m = trenLaluKoreksi().map((x) => l(400 - x.buka, 400 - x.rendah, 400 - x.tinggi, 400 - x.tutup));
+    samaDengan(def("pantulan-tren-turun").deteksi(m).filter(Boolean).length, 1);
+  });
+
+  /** Jatuh tajam ke 80 (RSI sangat rendah), pantul ke 90, lalu turun
+   *  pelan ke 79 (dasar lebih rendah, RSI lebih tinggi), lalu naik. */
+  const divergen = (kakiKedua = 79) => dariHarga([
+    ...Array.from({ length: 30 }, (_, i) => 100 + (i % 2) * 0.5),
+    96, 92, 88, 84, 80,
+    ...Array.from({ length: 10 }, (_, i) => 81 + i),
+    ...Array.from({ length: 10 }, (_, i) => 90 - ((90 - kakiKedua) * (i + 1)) / 10),
+    ...Array.from({ length: 8 }, (_, i) => kakiKedua + 1 + i),
+  ]);
+
+  uji("divergensi naik ditandai SAYAP sesi sesudah dasar kedua", () => {
+    const b = divergen();
+    const d = def("divergensi-naik").deteksi(b);
+    const dasar2 = 54;
+    samaDengan(b[dasar2].tutup, 79);
+    samaDengan(d.map((x, i) => (x ? i : -1)).filter((i) => i >= 0), [dasar2 + 5]);
+  });
+
+  uji("stop divergensi ada di dasar kedua", () => {
+    const b = divergen();
+    const x = levelSinyal(b, 59, def("divergensi-naik"), 0.05)!;
+    mendekati(x.stop, 78.7, 1e-9);
+  });
+
+  uji("dasar kedua yang lebih tinggi bukan divergensi naik", () => {
+    samaDengan(def("divergensi-naik").deteksi(divergen(82)).some(Boolean), false);
+  });
+
+  /** 150 sesi berayun 2 poin, 30 sesi berayun 0,2 poin, lalu melonjak. */
+  const sempit = (ayunSempit = 0.2) => dariHarga([
+    ...Array.from({ length: 150 }, (_, i) => 100 + (i % 2) * 2),
+    ...Array.from({ length: 30 }, (_, i) => 100 + (i % 2) * ayunSempit),
+    103,
+  ]);
+
+  uji("penyempitan lalu tutup di atas pita atas ditandai", () => {
+    benar(terakhir(def("sempit-tembus-atas").deteksi(sempit())));
+    benar(!terakhir(def("sempit-tembus-bawah").deteksi(sempit())));
+  });
+
+  uji("tembus pita tanpa penyempitan tidak dihitung", () => {
+    // Ayunan tetap 2 poin: volatilitasnya tidak pernah mencetak rekor sempit baru.
+    samaDengan(def("sempit-tembus-atas").deteksi(sempit(2)).some(Boolean), false);
+  });
+
+  uji("stop penyempitan di garis tengah pita", () => {
+    const b = sempit();
+    const x = levelSinyal(b, b.length - 1, def("sempit-tembus-atas"), 0.05)!;
+    const tengah = bollinger(b.map((y) => y.tutup)).tengah[b.length - 1]!;
+    mendekati(x.stop, tengah, 1e-9);
   });
 });

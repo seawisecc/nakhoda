@@ -122,6 +122,31 @@ export function macd(tutup: number[], cepat = 12, lambat = 26, isyarat = 9) {
   return { garis, sinyal };
 }
 
+/** Pita Bollinger: SMA n plus-minus k simpangan baku populasi, seperti
+ *  definisi Bollinger sendiri dan TradingView. `lebar` adalah jarak dua pita
+ *  dibagi tengahnya, supaya saham $5 dan $500 bisa dibandingkan dengan
+ *  ukuran yang sama. */
+export function bollinger(tutup: number[], n = 20, k = 2) {
+  const tengah = sma(tutup, n);
+  const atas: (number | null)[] = [];
+  const bawah: (number | null)[] = [];
+  const lebar: (number | null)[] = [];
+  tutup.forEach((_, i) => {
+    const m = tengah[i];
+    if (m === null) {
+      atas.push(null); bawah.push(null); lebar.push(null);
+      return;
+    }
+    let jumlah = 0;
+    for (let j = i - n + 1; j <= i; j += 1) jumlah += (tutup[j] - m) ** 2;
+    const sd = Math.sqrt(jumlah / n);
+    atas.push(m + k * sd);
+    bawah.push(m - k * sd);
+    lebar.push(m > 0 ? (2 * k * sd) / m : null);
+  });
+  return { tengah, atas, bawah, lebar };
+}
+
 /* ── Bantuan ────────────────────────────────────────────────────────────── */
 
 const badan = (l: Lilin) => Math.abs(l.tutup - l.buka);
@@ -474,6 +499,93 @@ export function polaGandaTerbentuk(b: Lilin[], i: number, arah: Arah): PolaGanda
   return null;
 }
 
+/* ── Koreksi dalam tren, divergensi, dan penyempitan ─────────────────── */
+
+/** RSI 2 sesi di bawah 10 (atau di atas 90) di sisi yang benar dari SMA
+ *  200. Bedanya dengan sinyal RSI 14: yang ini tidak menebak pembalikan
+ *  tren, dia membeli koreksi pendek DI DALAM tren yang masih berjalan.
+ *  Tanpa syarat SMA 200, RSI 2 di bawah 10 cuma menandai setiap hari merah
+ *  yang agak panjang, termasuk di tengah kejatuhan. */
+function koreksiDalamTren(b: Lilin[], arah: Arah): boolean[] {
+  const t = b.map((x) => x.tutup);
+  const r = rsi(t, 2);
+  const panjang = sma(t, 200);
+  return silang((i) => {
+    if (r[i] === null || panjang[i] === null) return null;
+    return arah === "naik"
+      ? t[i] > panjang[i]! && r[i]! < 10
+      : t[i] < panjang[i]! && r[i]! > 90;
+  }, b, 200);
+}
+
+/** Dua titik balik yang dibandingkan untuk divergensi paling jauh 60 sesi.
+ *  Lebih jauh dari itu, RSI di titik pertama sudah mengukur pasar yang lain. */
+const JARAK_DIVERGENSI = 60;
+
+/** Divergensi RSI 14: harga membuat dasar lebih rendah tapi RSI membuat
+ *  dasar lebih tinggi (arah naik), atau kebalikannya di puncak.
+ *
+ *  Ditandai di hari titik balik keduanya TERKONFIRMASI, yaitu SAYAP sesi
+ *  sesudahnya, bukan di titik baliknya sendiri. Divergensi yang digambar di
+ *  dasar yang baru belakangan diketahui sebagai dasar adalah contoh paling
+ *  umum backtest yang terlihat hebat dan tidak bisa dipakai. RSI titik
+ *  pertama juga harus sudah di wilayah lemah (40 ke bawah, atau 60 ke atas):
+ *  divergensi di tengah rentang cuma dua riak kecil. */
+function divergensi(b: Lilin[], arah: Arah): boolean[] {
+  const r = rsi(b.map((x) => x.tutup));
+  const daftar = daftarPivot(b, arah);
+  const hasil = b.map(() => false);
+  const harga = (j: number) => (arah === "naik" ? b[j].rendah : b[j].tinggi);
+  for (let k = 1; k < daftar.length; k += 1) {
+    const [p1, p2] = [daftar[k - 1], daftar[k]];
+    const jarak = p2 - p1;
+    if (jarak < JARAK_MIN || jarak > JARAK_DIVERGENSI) continue;
+    if (r[p1] === null || r[p2] === null) continue;
+    const cocok = arah === "naik"
+      ? harga(p2) < harga(p1) && r[p2]! > r[p1]! && r[p1]! <= 40
+      : harga(p2) > harga(p1) && r[p2]! < r[p1]! && r[p1]! >= 60;
+    if (cocok) hasil[p2 + SAYAP] = true;
+  }
+  return hasil;
+}
+
+/** Penyempitan: pada sesi sebelum tembus, lebar pita Bollinger adalah yang
+ *  tersempit dalam 120 sesi DAN paling lebar separuh rata-rata lebarnya.
+ *
+ *  Syarat pertama saja tidak cukup: deret yang volatilitasnya tetap selalu
+ *  "tersempit" karena setiap harinya sama sempit, padahal tidak ada yang
+ *  menyempit. Rekor sempit yang harus baru dicetak juga ditolak, karena
+ *  penyempitan yang bertahan dua minggu, justru yang paling khas, jadi tidak
+ *  pernah terhitung. */
+const JENDELA_SEMPIT = 120;
+const RASIO_SEMPIT = 0.5;
+
+/** Volatilitas yang menyempit lalu tembus pita. Mengukur hal yang tidak
+ *  diukur sinyal lain di sini: bukan arah atau momentum, tapi pasar yang
+ *  diam terlalu lama lalu bergerak. Tembus pita tanpa penyempitan sebelumnya
+ *  tidak dihitung; itu cuma hari yang besar. */
+function tembusSempit(b: Lilin[], arah: Arah): boolean[] {
+  const t = b.map((x) => x.tutup);
+  const { atas, bawah, lebar } = bollinger(t);
+  const mulai = 20 + JENDELA_SEMPIT;
+  return silang((i) => {
+    if (i < mulai || atas[i] === null) return null;
+    const pita = arah === "naik" ? atas[i]! : bawah[i]!;
+    const tembus = arah === "naik" ? t[i] > pita : t[i] < pita;
+    if (!tembus) return false;
+    const kemarin = lebar[i - 1]!;
+    let terkecil = Infinity;
+    let jumlah = 0;
+    for (let j = i - JENDELA_SEMPIT; j < i; j += 1) {
+      terkecil = Math.min(terkecil, lebar[j]!);
+      jumlah += lebar[j]!;
+    }
+    // Toleransi kecil: lebar yang sama persis bisa berbeda di digit terakhir
+    // floating point, dan itu tidak boleh memutuskan ada atau tidaknya sinyal.
+    return kemarin <= terkecil * (1 + 1e-9) && kemarin <= RASIO_SEMPIT * (jumlah / JENDELA_SEMPIT);
+  }, b, mulai);
+}
+
 /* ── Daftar ─────────────────────────────────────────────────────────────── */
 
 export const DAFTAR_SINYAL: DefinisiSinyal[] = [
@@ -645,6 +757,44 @@ export const DAFTAR_SINYAL: DefinisiSinyal[] = [
     id: "volume-turun", nama: "Lonjakan volume turun", arah: "turun", kelompok: "breakout", panjangStop: 10,
     keterangan: "Volume dua kali rata-rata 20 sesi, lilin merah menutup lebih rendah.",
     deteksi: (b) => tiapIndeks(b, 20, (i) => lonjakanVolume(b, i, "turun")),
+  },
+  {
+    id: "koreksi-tren-naik", nama: "Koreksi dalam tren naik", arah: "naik", kelompok: "indikator", panjangStop: 10,
+    keterangan: "Tutup di atas rata-rata 200 hari, RSI 2 turun di bawah 10.",
+    deteksi: (b) => koreksiDalamTren(b, "naik"),
+  },
+  {
+    id: "pantulan-tren-turun", nama: "Pantulan dalam tren turun", arah: "turun", kelompok: "indikator", panjangStop: 10,
+    keterangan: "Tutup di bawah rata-rata 200 hari, RSI 2 naik di atas 90.",
+    deteksi: (b) => koreksiDalamTren(b, "turun"),
+  },
+  {
+    id: "divergensi-naik", nama: "Divergensi RSI naik", arah: "naik", kelompok: "pola", panjangStop: 1,
+    keterangan: "Dasar harga lebih rendah, dasar RSI 14 lebih tinggi, dari wilayah 40 ke bawah.",
+    // Sinyal ditandai SAYAP sesi sesudah dasar keduanya, jadi dasar itu ada
+    // tepat SAYAP lilin di belakang.
+    titikStop: (b, i) => (i >= SAYAP ? b[i - SAYAP].rendah : null),
+    deteksi: (b) => divergensi(b, "naik"),
+  },
+  {
+    id: "divergensi-turun", nama: "Divergensi RSI turun", arah: "turun", kelompok: "pola", panjangStop: 1,
+    keterangan: "Puncak harga lebih tinggi, puncak RSI 14 lebih rendah, dari wilayah 60 ke atas.",
+    titikStop: (b, i) => (i >= SAYAP ? b[i - SAYAP].tinggi : null),
+    deteksi: (b) => divergensi(b, "turun"),
+  },
+  {
+    id: "sempit-tembus-atas", nama: "Sempit lalu tembus atas", arah: "naik", kelompok: "breakout", panjangStop: 10,
+    keterangan: "Pita Bollinger tersempit dalam 120 sesi, lalu tutup di atas pita atas.",
+    // Stop di garis tengah pita: kalau harga kembali ke rata-ratanya,
+    // pergerakan yang jadi alasan masuk sudah batal.
+    titikStop: (b, i) => bollinger(b.slice(0, i + 1).map((x) => x.tutup)).tengah[i],
+    deteksi: (b) => tembusSempit(b, "naik"),
+  },
+  {
+    id: "sempit-tembus-bawah", nama: "Sempit lalu tembus bawah", arah: "turun", kelompok: "breakout", panjangStop: 10,
+    keterangan: "Pita Bollinger tersempit dalam 120 sesi, lalu tutup di bawah pita bawah.",
+    titikStop: (b, i) => bollinger(b.slice(0, i + 1).map((x) => x.tutup)).tengah[i],
+    deteksi: (b) => tembusSempit(b, "turun"),
   },
 ];
 
